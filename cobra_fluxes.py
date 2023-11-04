@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from cobra import Reaction, Model
 from matplotlib.lines import Line2D
-from scripts.helper import get_carbon_count_lookup
+from scripts.helper import get_carbon_count_lookup, carbon_count_for_metabolite, metabolite_to_reaction_name
 
 
 def get_original_bounds(model):
@@ -264,41 +264,25 @@ def restrict_glucose_flow(model: Model) -> pd.DataFrame:
     return atp_results_df
 
 
-def temp(model, original_bounds):
+def reset_bounds(model, original_bounds) -> Model:
     # Reset the bounds for the metabolites to the original values: (?)
     for reaction_id, bounds in original_bounds.items():
         model.reactions.get_by_id(reaction_id).lower_bound = bounds['lower_bound']
         model.reactions.get_by_id(reaction_id).upper_bound = bounds['upper_bound']
+    return model
 
     # ------
 
-    # Lookup:
-    carbon_count_lookup = get_carbon_count_lookup()
 
-    # ecm Tool read in table:
-    ecm_data = pd.read_csv("csvs/core_conversions.csv")
-    ecm_data = ecm_data[ecm_data["objective"] == 0]
+def calculate_max_and_max_standardized_ATP_for_every_reaction(model: Model, core_conversions_df: pd.DataFrame) -> pd.DataFrame:
+    # Remove all elements where objective !== 0
+    core_conversions_df = core_conversions_df[core_conversions_df["objective"] == 0]
 
     # Create DataFrame for the results:
     results = []
 
-    print(model.reactions.get_by_id("EX_ac_e"))
-
-    # Function to convert metabolite name from table to reaction name in model:
-    def metabolite_to_reaction_name(metabolite_name):
-        if metabolite_name == "objective":
-            return "Biomass_Ecoli_core"
-        else:
-            return "EX_" + metabolite_name.split('_')[1] + "_e"
-
-    def carbon_count_for_metabolite(name, val):
-        multiplier = carbon_count_lookup.get(name, 0)
-        return abs(val) * multiplier
-
-    print('-----------------------------------------------')
-    atp_per_c = []
     # Iterate through each row of the ecm tool table:
-    for index, row in ecm_data.iterrows():
+    for index, row in core_conversions_df.iterrows():
         # Set metabolites:
         carbon_count = 0
         for metabolite, value in row.items():
@@ -337,13 +321,65 @@ def temp(model, original_bounds):
             'ATP_per_C': atp_per_c,
             'carbon_count': carbon_count,
         })
-    # exit()
 
     # Save results as a CSV file:
     results_df = pd.DataFrame(results)
-    results_df.to_csv("max_ATP_for_every_reaction.csv", index=False)
+    return results_df
 
-    # Plotting:
+def calculate_max_and_max_standardized_biomass_for_every_reaction(model: Model, core_conversions_df: pd.DataFrame) -> pd.DataFrame:
+    # Remove all elements where objective !== 0
+    core_conversions_df = core_conversions_df[core_conversions_df["objective"] == 0]
+
+    # Create DataFrame for the results:
+    results = []
+
+    # Iterate through each row of the ecm tool table:
+    for index, row in core_conversions_df.iterrows():
+        # Set metabolites:
+        carbon_count = 0
+        for metabolite, value in row.items():
+            carbon_count += carbon_count_for_metabolite(metabolite, value)
+
+            reaction_name = metabolite_to_reaction_name(metabolite)
+            if not hasattr(model.reactions, reaction_name):
+                continue
+            reaction_obj = getattr(model.reactions, reaction_name)
+
+            if value == 0:
+                # print(f"Value = 0 | Set bounds for {reaction_name}: to 0|0")
+                reaction_obj.lower_bound = 0
+                reaction_obj.upper_bound = 0
+            elif value > 0:
+                # print(f"Value > 0 | Set bounds for {reaction_name}: to 0|1000")
+                reaction_obj.lower_bound = 0
+                reaction_obj.upper_bound = 1000
+            else:
+                # print(f"Value < 0 | Set bounds for {reaction_name}: to {value}|0")
+                reaction_obj.lower_bound = value
+                reaction_obj.upper_bound = 0
+
+        carbon_count = carbon_count / 2
+
+        # Calculate maximum ATP:
+        model.objective = 'BIOMASS_Ecoli_core_w_GAM'
+        solution = model.optimize()
+        atp_per_c = solution.objective_value / carbon_count
+
+        # Save results:
+        results.append({
+            'Row': index,
+            'Optimal_Biomass': solution.objective_value,
+            'Fluxes': {rxn.id: rxn.flux for rxn in model.exchanges},
+            'Biomass_per_C': atp_per_c,
+            'carbon_count': carbon_count,
+        })
+
+    # Save results as a CSV file:
+    results_df = pd.DataFrame(results)
+    return results_df
+
+
+def visualize_standardized_max_ATP(max_ATP_df: pd.DataFrame) -> None:
     summenformeln = ["Reaction 0: 10 C6H12O6 + 0.0 O2 + 1.2 PO₄³⁻ -> 0.0 H2O + 20 C3H6O3 + 0.0 C4H6O4",
                      "Reaction 1: 1.4 CH2O2 + 10 C6H12O6 -> 20 C3H6O3",
                      "Reaction 2:1.4 CH2O2 + 10 C6H12O6 -> 20 C3H6O3",
@@ -353,8 +389,6 @@ def temp(model, original_bounds):
 
     legend_elements = [Line2D([0], [0], color='w', marker='o', markerfacecolor='w', markersize=10, label=sf) for sf in
                        summenformeln]
-
-    max_ATP_df = pd.read_csv("max_ATP_for_every_reaction.csv")
 
     max_ATP_df = max_ATP_df.sort_values(by='ATP_per_C', ascending=False)
 
@@ -373,5 +407,40 @@ def temp(model, original_bounds):
     plt.legend(handles=legend_elements, loc="upper right")
 
     # Save diagram:
-    plt.savefig('Standardized_max_ATP.png')
+    print(f"Saving standardized_max_ATP.png")
+    plt.savefig('depictions/standardized_max_ATP.png')
+    plt.show()
+
+
+def visualize_standardized_max_biomass(max_biomass_df: pd.DataFrame) -> None:
+    # TODO: update reaction names
+    summenformeln = ["Reaction 0: 10 C6H12O6 + 0.0 O2 + 1.2 PO₄³⁻ -> 0.0 H2O + 20 C3H6O3 + 0.0 C4H6O4",
+                     "Reaction 1: 1.4 CH2O2 + 10 C6H12O6 -> 20 C3H6O3",
+                     "Reaction 2:1.4 CH2O2 + 10 C6H12O6 -> 20 C3H6O3",
+                     "Reaction 3: 10 C6H12O6 + 0.1 O2 -> 0.2 H2O + 19.8 C3H6O3 + 0.2 C4H6O4",
+                     "Reaction 4: 1.4 CH2O2 + 10 C6H12O6 -> 20 C3H6O3",
+                     "Reaction 5: 10 C6H12O6 + 0.3 O2 -> 0.2 CO2 + 0.3 H2O + 19.9 C3H6O3 + 2.5 PO₄³⁻"]
+
+    legend_elements = [Line2D([0], [0], color='w', marker='o', markerfacecolor='w', markersize=10, label=sf) for sf in
+                       summenformeln]
+
+    max_biomass_df = max_biomass_df.sort_values(by='Biomass_per_C', ascending=False)
+
+    plt.figure(figsize=(14, 7))
+    barWidth = 0.3
+
+    # Use of absolute values for Gibbs Energy:
+    plt.bar(range(len(max_biomass_df)), max_biomass_df['Biomass_per_C'].abs(), color='r', label='Standardized maximum biomass')
+
+    # Adding labels for the bars:
+    plt.xlabel('Reactions', fontweight='bold')
+    plt.ylabel('Biomass/C')
+    plt.title('Standardized maximum biomass values for the catabolic reactions of the E. coli core model')
+    plt.xticks(range(len(max_biomass_df)), range(len(max_biomass_df)))
+
+    plt.legend(handles=legend_elements, loc="upper right")
+
+    # Save diagram:
+    print(f"Saving standardized_max_biomass.png")
+    plt.savefig('depictions/standardized_max_biomass.png')
     plt.show()

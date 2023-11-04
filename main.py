@@ -10,7 +10,9 @@ from scripts.delta_H_delta_S_values import calculate_enthalpy, normalize_gibbs_e
 from scripts.flux_network_reactions import visualize_flux_network_reactions
 from cobra_fluxes import get_original_bounds, fba_different_glucose_values, visualize_biomass_vs_glucose, \
     fba_different_oxygen_values, visualize_biomass_vs_oxygen, add_ATP_hydrolysis_reaction, update_exchange_fluxes, \
-    restrict_glucose_flow
+    restrict_glucose_flow, reset_bounds, calculate_max_and_max_standardized_ATP_for_every_reaction, \
+    visualize_standardized_max_ATP, calculate_max_and_max_standardized_biomass_for_every_reaction, \
+    visualize_standardized_max_biomass
 
 # setup
 os.makedirs('csvs', exist_ok=True)
@@ -66,6 +68,14 @@ print('atp_optimal_flow_glucose...')
 atp_results_df = restrict_glucose_flow(model_with_reaction_zeroed)
 atp_results_df.to_csv("csvs/atp_optimal_flow_glucose.csv", index=False)
 
+model_reset_bounds = reset_bounds(model_with_reaction_zeroed, original_bounds)
+
+max_ATP_for_every_reaction_df = calculate_max_and_max_standardized_ATP_for_every_reaction(model_reset_bounds, core_conversions_df.copy())
+max_ATP_for_every_reaction_df.to_csv("csvs/max_ATP_for_every_reaction.csv", index=False)
+
+max_biomass_for_every_reaction_df = calculate_max_and_max_standardized_biomass_for_every_reaction(model_reset_bounds, core_conversions_df.copy())
+max_biomass_for_every_reaction_df.to_csv("csvs/max_biomass_for_every_reaction.csv", index=False)
+
 # visualizing
 print('visualizing...')
 
@@ -80,3 +90,7 @@ visualize_flux_network_reactions(core_conversions_df.copy())
 visualize_biomass_vs_glucose(fba_different_glucose_values_df.copy())
 
 visualize_biomass_vs_oxygen(fba_different_oxygen_values_df.copy())
+
+visualize_standardized_max_ATP(max_ATP_for_every_reaction_df.copy())
+
+visualize_standardized_max_biomass(max_biomass_for_every_reaction_df.copy())

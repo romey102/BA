@@ -72,3 +72,18 @@ def metabolite_name_lookup():
         'M_succ_e': 'Succinate',
         'M_h_e': 'H'
     }
+
+def metabolite_to_reaction_name(metabolite_name):
+    """
+       Convert a metabolite name from a table to a reaction name in a metabolic model.
+    """
+    if metabolite_name == "objective":
+        return "Biomass_Ecoli_core"
+    else:
+        return "EX_" + metabolite_name.split('_')[1] + "_e"
+
+def carbon_count_for_metabolite(name, val):
+    carbon_count_lookup = get_carbon_count_lookup()
+    multiplier = carbon_count_lookup.get(name, 0)
+    return abs(val) * multiplier
+
