@@ -10,6 +10,8 @@ from scripts.flux_network_reactions import visualize_flux_network_reactions
 
 # setup
 os.makedirs('csvs', exist_ok=True)
+os.makedirs('intermediate_results', exist_ok=True)
+os.makedirs('depictions', exist_ok=True)
 core_conversions_df = pd.read_csv('csvs/core_conversions.csv')
 
 # processing
