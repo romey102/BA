@@ -2,18 +2,12 @@ from multiprocessing import freeze_support
 
 import matplotlib.pyplot as plt
 import pandas as pd
-from cobra import Reaction
-from cobra.io import read_sbml_model
+from cobra import Reaction, Model
 from matplotlib.lines import Line2D
 from scripts.helper import get_carbon_count_lookup
 
 
-if __name__ == '__main__':  # Troubleshooting
-    freeze_support()
-
-    # Loading the model:
-    model = read_sbml_model(r"C:\Users\Ronja\PycharmProjects\ecmtool\models\e_coli_core.xml")
-
+def get_original_bounds(model):
     # List of reactions for which the bounds are stored:
     reaction_list = ['ACALD', 'ACALDt', 'ACKr', 'ACONTa', 'ACONTb', 'ACt2r', 'ADK1', 'AKGDH', 'AKGt2r', 'ALCD2x',
                      'ATPM',
@@ -57,10 +51,12 @@ if __name__ == '__main__':  # Troubleshooting
     exchange_reactions = [rxn.id for rxn in model.exchanges]
     print(f"Exchange Reactions: {exchange_reactions}")
 
-    # -------
+    return original_bounds
 
     # FBA for different glucose values:
 
+
+def fba_different_glucose_values(model: Model, original_bounds: dict):
     # DataFrame for storing the results:
     results_df = pd.DataFrame(columns=['Glucose_Lower_Bound', 'Objective_Value', 'Status'])
 
@@ -102,14 +98,16 @@ if __name__ == '__main__':  # Troubleshooting
     model.reactions.EX_glc__D_e.lower_bound = original_bounds['EX_glc__D_e']['lower_bound']
     model.reactions.EX_glc__D_e.upper_bound = original_bounds['EX_glc__D_e']['upper_bound']
 
-    # Save the DataFrame as a CSV file:
-    results_df.to_csv("fba_results_for_various_glucose_values.csv", index=False)
+    return results_df
 
+
+def visualize_biomass_vs_glucose(fba_different_glucose_values_df) -> None:
     # Creating a plot:
     plt.figure(figsize=(10, 6))
 
     # Inserting the data into the plot:
-    plt.scatter(results_df['Glucose_Lower_Bound'], results_df['Objective_Value'], label='Biomasseproduktion')
+    plt.scatter(fba_different_glucose_values_df['Glucose_Lower_Bound'],
+                fba_different_glucose_values_df['Objective_Value'], label='Biomasseproduktion')
 
     # Adding axis titles and a diagram title:
     plt.xlabel('Glucose Lower Bound')
@@ -118,14 +116,16 @@ if __name__ == '__main__':  # Troubleshooting
 
     # Adding a legend:
     plt.legend()
-
-    plt.savefig("Biomasse_vs_Glucose.png")
+    print(f"Saving biomass_vs_glucose.png")
+    plt.savefig("depictions/biomass_vs_glucose.png")
     plt.show()
 
     # ------
 
     # FBA for different oxygen values:
 
+
+def fba_different_oxygen_values(model: Model, original_bounds: dict):
     # DataFrame for storing the results:
     results_df = pd.DataFrame(columns=['EX_o2_e_Lower_Bound', 'Objective_Value', 'Status'])
 
@@ -168,13 +168,17 @@ if __name__ == '__main__':  # Troubleshooting
     model.reactions.EX_o2_e.upper_bound = original_bounds['EX_o2_e']['upper_bound']
 
     # Save the DataFrame as a CSV file:
-    results_df.to_csv("fba_results_for_various_oxygen_values.csv", index=False)
+    # results_df.to_csv("fba_results_for_various_oxygen_values.csv", index=False)
+    return results_df
 
+
+def visualize_biomass_vs_oxygen(fba_different_oxygen_values_df) -> None:
     # Creating a plot:
     plt.figure(figsize=(10, 6))
 
     # Inserting the data into the plot:
-    plt.scatter(results_df['Oxygen_Lower_Bound'], results_df['Objective_Value'], label='Biomass production')
+    plt.scatter(fba_different_oxygen_values_df['Oxygen_Lower_Bound'], fba_different_oxygen_values_df['Objective_Value'],
+                label='Biomass production')
 
     # Adding axis titles and a diagram title:
     plt.xlabel('Oxygen Lower Bound')
@@ -184,11 +188,14 @@ if __name__ == '__main__':  # Troubleshooting
     # Adding a legend:
     plt.legend()
 
-    plt.savefig("Biomasse_vs_Sauerstoff.png")
+    print(f"Saving biomass_vs_oxygen.png")
+    plt.savefig("depictions/biomass_vs_oxygen.png")
     plt.show()
 
     # ------
 
+
+def add_ATP_hydrolysis_reaction(model: Model) -> Model:
     # Create a new reaction:
     new_reaction = Reaction('ATP_hydrolysis')
     new_reaction.name = 'ATP Hydrolysis'
@@ -203,9 +210,11 @@ if __name__ == '__main__':  # Troubleshooting
 
     # Adding the reaction to the model:
     model.add_reactions([new_reaction])
-
+    return model
     # ----
 
+
+def update_exchange_fluxes(model: Model) -> Model:
     # All exchange fluxes = 0 whose metabolite in the ecm tool = 0:
 
     # List of metabolites that were used in the ecm tool:
@@ -226,8 +235,11 @@ if __name__ == '__main__':  # Troubleshooting
             reaction.lower_bound = 0
             reaction.upper_bound = 0
 
+    return model
     # ----
 
+
+def restrict_glucose_flow(model: Model) -> pd.DataFrame:
     # Restrict the flow for the C source (glucose):
     model.reactions.EX_glc__D_e.lower_bound = -1
     model.reactions.EX_glc__D_e.upper_bound = 0
@@ -249,12 +261,10 @@ if __name__ == '__main__':  # Troubleshooting
         'Reaction': ['ATP_hydrolysis'],
         'Optimal_Flow': [solution.objective_value]
     })
+    return atp_results_df
 
-    # Save result as CSV file
-    atp_results_df.to_csv("atp_optimal_flow_glucose.csv", index=False)
 
-    # ab hier überprüfen!
-
+def temp(model, original_bounds):
     # Reset the bounds for the metabolites to the original values: (?)
     for reaction_id, bounds in original_bounds.items():
         model.reactions.get_by_id(reaction_id).lower_bound = bounds['lower_bound']
@@ -266,14 +276,13 @@ if __name__ == '__main__':  # Troubleshooting
     carbon_count_lookup = get_carbon_count_lookup()
 
     # ecm Tool read in table:
-    ecm_data = pd.read_csv("core_conversions.csv")
+    ecm_data = pd.read_csv("csvs/core_conversions.csv")
     ecm_data = ecm_data[ecm_data["objective"] == 0]
 
     # Create DataFrame for the results:
     results = []
 
     print(model.reactions.get_by_id("EX_ac_e"))
-
 
     # Function to convert metabolite name from table to reaction name in model:
     def metabolite_to_reaction_name(metabolite_name):
@@ -285,7 +294,6 @@ if __name__ == '__main__':  # Troubleshooting
     def carbon_count_for_metabolite(name, val):
         multiplier = carbon_count_lookup.get(name, 0)
         return abs(val) * multiplier
-
 
     print('-----------------------------------------------')
     atp_per_c = []
@@ -326,7 +334,7 @@ if __name__ == '__main__':  # Troubleshooting
             'Row': index,
             'Optimal_ATP': solution.objective_value,
             'Fluxes': {rxn.id: rxn.flux for rxn in model.exchanges},
-            'ATP_per_C':  atp_per_c,
+            'ATP_per_C': atp_per_c,
             'carbon_count': carbon_count,
         })
     # exit()
@@ -335,19 +343,22 @@ if __name__ == '__main__':  # Troubleshooting
     results_df = pd.DataFrame(results)
     results_df.to_csv("max_ATP_for_every_reaction.csv", index=False)
 
+    # Plotting:
+    summenformeln = ["Reaction 0: 10 C6H12O6 + 0.0 O2 + 1.2 PO₄³⁻ -> 0.0 H2O + 20 C3H6O3 + 0.0 C4H6O4",
+                     "Reaction 1: 1.4 CH2O2 + 10 C6H12O6 -> 20 C3H6O3",
+                     "Reaction 2:1.4 CH2O2 + 10 C6H12O6 -> 20 C3H6O3",
+                     "Reaction 3: 10 C6H12O6 + 0.1 O2 -> 0.2 H2O + 19.8 C3H6O3 + 0.2 C4H6O4",
+                     "Reaction 4: 1.4 CH2O2 + 10 C6H12O6 -> 20 C3H6O3",
+                     "Reaction 5: 10 C6H12O6 + 0.3 O2 -> 0.2 CO2 + 0.3 H2O + 19.9 C3H6O3 + 2.5 PO₄³⁻"]
 
-    #Plotting:
-    summenformeln = ["Reaction 0: 10 C6H12O6 + 0.0 O2 + 1.2 PO₄³⁻ -> 0.0 H2O + 20 C3H6O3 + 0.0 C4H6O4", "Reaction 1: 1.4 CH2O2 + 10 C6H12O6 -> 20 C3H6O3",
-                     "Reaction 2:1.4 CH2O2 + 10 C6H12O6 -> 20 C3H6O3", "Reaction 3: 10 C6H12O6 + 0.1 O2 -> 0.2 H2O + 19.8 C3H6O3 + 0.2 C4H6O4",
-                     "Reaction 4: 1.4 CH2O2 + 10 C6H12O6 -> 20 C3H6O3", "Reaction 5: 10 C6H12O6 + 0.3 O2 -> 0.2 CO2 + 0.3 H2O + 19.9 C3H6O3 + 2.5 PO₄³⁻"]
-
-    legend_elements = [Line2D([0], [0], color='w', marker='o', markerfacecolor='w', markersize=10, label=sf) for sf in summenformeln]
+    legend_elements = [Line2D([0], [0], color='w', marker='o', markerfacecolor='w', markersize=10, label=sf) for sf in
+                       summenformeln]
 
     max_ATP_df = pd.read_csv("max_ATP_for_every_reaction.csv")
 
     max_ATP_df = max_ATP_df.sort_values(by='ATP_per_C', ascending=False)
 
-    plt.figure(figsize=(14,7))
+    plt.figure(figsize=(14, 7))
     barWidth = 0.3
 
     # Use of absolute values for Gibbs Energy:
@@ -364,7 +375,3 @@ if __name__ == '__main__':  # Troubleshooting
     # Save diagram:
     plt.savefig('Standardized_max_ATP.png')
     plt.show()
-
-
-    #-------
-
