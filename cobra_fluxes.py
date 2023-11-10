@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from cobra import Reaction, Model
 from matplotlib.lines import Line2D
-from scripts.helper import get_carbon_count_lookup, carbon_count_for_metabolite, metabolite_to_reaction_name
+from scripts.helper import get_carbon_count_lookup, carbon_count_for_metabolite, metabolite_to_reaction_name, \
+    metabolite_formula_lookup
 
 
 def get_original_bounds(model):
@@ -107,7 +108,7 @@ def visualize_biomass_vs_glucose(fba_different_glucose_values_df) -> None:
 
     # Inserting the data into the plot:
     plt.scatter(fba_different_glucose_values_df['Glucose_Lower_Bound'],
-                fba_different_glucose_values_df['Objective_Value'], label='Biomasseproduktion')
+                fba_different_glucose_values_df['Objective_Value'], label='Biomass production')
 
     # Adding axis titles and a diagram title:
     plt.xlabel('Glucose Lower Bound')
@@ -274,7 +275,8 @@ def reset_bounds(model, original_bounds) -> Model:
     # ------
 
 
-def calculate_max_and_max_standardized_ATP_for_every_reaction(model: Model, core_conversions_df: pd.DataFrame) -> pd.DataFrame:
+def calculate_max_and_max_standardized_ATP_for_every_reaction(model: Model,
+                                                              core_conversions_df: pd.DataFrame) -> pd.DataFrame:
     # Remove all elements where objective !== 0
     core_conversions_df = core_conversions_df[core_conversions_df["objective"] == 0]
 
@@ -293,14 +295,14 @@ def calculate_max_and_max_standardized_ATP_for_every_reaction(model: Model, core
                 continue
             reaction_obj = getattr(model.reactions, reaction_name)
 
-            if value == 0:
-                # print(f"Value = 0 | Set bounds for {reaction_name}: to 0|0")
+            if abs(value) < 1e-10:  # oder abs(value) <= 1e-10:
+                # print(f"Value = 0 or very small| Set bounds for {reaction_name}: to 0|0")
                 reaction_obj.lower_bound = 0
                 reaction_obj.upper_bound = 0
             elif value > 0:
-                # print(f"Value > 0 | Set bounds for {reaction_name}: to 0|1000")
+                # print(f"Value > 0 | Set bounds for {reaction_name}: to 0|{value}")
                 reaction_obj.lower_bound = 0
-                reaction_obj.upper_bound = 1000
+                reaction_obj.upper_bound = value
             else:
                 # print(f"Value < 0 | Set bounds for {reaction_name}: to {value}|0")
                 reaction_obj.lower_bound = value
@@ -326,7 +328,9 @@ def calculate_max_and_max_standardized_ATP_for_every_reaction(model: Model, core
     results_df = pd.DataFrame(results)
     return results_df
 
-def calculate_max_and_max_standardized_biomass_for_every_reaction(model: Model, core_conversions_df: pd.DataFrame) -> pd.DataFrame:
+
+def calculate_max_and_max_standardized_biomass_for_every_reaction(model: Model,
+                                                                  core_conversions_df: pd.DataFrame) -> pd.DataFrame:
     # Remove all elements where objective !== 0
     core_conversions_df = core_conversions_df[core_conversions_df["objective"] == 0]
 
@@ -345,6 +349,7 @@ def calculate_max_and_max_standardized_biomass_for_every_reaction(model: Model, 
                 continue
             reaction_obj = getattr(model.reactions, reaction_name)
 
+            # todo: bounds anpassen wie bei atp
             if value == 0:
                 # print(f"Value = 0 | Set bounds for {reaction_name}: to 0|0")
                 reaction_obj.lower_bound = 0
@@ -380,15 +385,36 @@ def calculate_max_and_max_standardized_biomass_for_every_reaction(model: Model, 
 
 
 def visualize_standardized_max_ATP(max_ATP_df: pd.DataFrame) -> None:
-    summenformeln = ["Reaction 0: 10 C6H12O6 + 0.0 O2 + 1.2 PO₄³⁻ -> 0.0 H2O + 20 C3H6O3 + 0.0 C4H6O4",
-                     "Reaction 1: 1.4 CH2O2 + 10 C6H12O6 -> 20 C3H6O3",
-                     "Reaction 2:1.4 CH2O2 + 10 C6H12O6 -> 20 C3H6O3",
-                     "Reaction 3: 10 C6H12O6 + 0.1 O2 -> 0.2 H2O + 19.8 C3H6O3 + 0.2 C4H6O4",
-                     "Reaction 4: 1.4 CH2O2 + 10 C6H12O6 -> 20 C3H6O3",
-                     "Reaction 5: 10 C6H12O6 + 0.3 O2 -> 0.2 CO2 + 0.3 H2O + 19.9 C3H6O3 + 2.5 PO₄³⁻"]
+    df = max_ATP_df
+    df_key = 'Fluxes'
+
+    formulas = []
+    lookup = metabolite_formula_lookup()
+    for i in range(0, 5):
+        negativeValues = []
+        positiveValues = []
+        for_dict = df.loc[i, df_key]
+        for key, value in for_dict.items():
+            if key == 'EX_h_e':
+                continue
+
+            value = round(value, 3)
+            value = int(value) if value == int(value) else value  # if rounded value is integer then cast to int
+
+            count_str = ''
+            if abs(value) != 1.0:
+                count_str += str(abs(value)) + ' '
+            count_str += lookup[key]
+
+            if value < 0:
+                negativeValues.append(count_str)
+            elif value > 0:
+                positiveValues.append(count_str)
+
+        formulas.append(' + '.join(negativeValues) + ' -> ' + ' + '.join(positiveValues))
 
     legend_elements = [Line2D([0], [0], color='w', marker='o', markerfacecolor='w', markersize=10, label=sf) for sf in
-                       summenformeln]
+                       formulas]
 
     max_ATP_df = max_ATP_df.sort_values(by='ATP_per_C', ascending=False)
 
@@ -396,7 +422,7 @@ def visualize_standardized_max_ATP(max_ATP_df: pd.DataFrame) -> None:
     barWidth = 0.3
 
     # Use of absolute values for Gibbs Energy:
-    plt.bar(range(len(max_ATP_df)), max_ATP_df['ATP_per_C'].abs(), color='r', label='Standardized maximum ATP')
+    plt.bar(range(len(max_ATP_df)), max_ATP_df['ATP_per_C'], color='r', label='Standardized maximum ATP')
 
     # Adding labels for the bars:
     plt.xlabel('Reactions', fontweight='bold')
@@ -413,13 +439,13 @@ def visualize_standardized_max_ATP(max_ATP_df: pd.DataFrame) -> None:
 
 
 def visualize_standardized_max_biomass(max_biomass_df: pd.DataFrame) -> None:
-    # TODO: update reaction names
-    summenformeln = ["Reaction 0: 10 C6H12O6 + 0.0 O2 + 1.2 PO₄³⁻ -> 0.0 H2O + 20 C3H6O3 + 0.0 C4H6O4",
-                     "Reaction 1: 1.4 CH2O2 + 10 C6H12O6 -> 20 C3H6O3",
-                     "Reaction 2:1.4 CH2O2 + 10 C6H12O6 -> 20 C3H6O3",
-                     "Reaction 3: 10 C6H12O6 + 0.1 O2 -> 0.2 H2O + 19.8 C3H6O3 + 0.2 C4H6O4",
-                     "Reaction 4: 1.4 CH2O2 + 10 C6H12O6 -> 20 C3H6O3",
-                     "Reaction 5: 10 C6H12O6 + 0.3 O2 -> 0.2 CO2 + 0.3 H2O + 19.9 C3H6O3 + 2.5 PO₄³⁻"]
+    # TODO: update reaction names nimmt der hier alle Werte als absolute Zahlen?
+    summenformeln = ["Reaction 0: 10 C6H12O6 + 4.55e^-15 NH4 -> 6.5e^-16 CO2 + 7.8e^-15 H2O + 20 C12H22O11",
+                     "Reaction 1: 10 C6H12O6 + 1.5 O2 + 6.4e^-17 PO₄³⁻ -> CO2 + C2H6O + 3 CH2O2 + 18 C12H22O11",
+                     "Reaction 2: 1.4e^-15 CH2O2 + 10 C6H12O6 -> 20 C3H6O3",
+                     "Reaction 73: 10 C6H12O6 + 7.9e^-15 H2O -> 8e^-16 C2H6O + 20 C12H22O11 + 3.8e^-15 NH4",
+                     "Reaction 74: 10 C6H12O6 + 7.9e^-15 H2O -> 8e^-16 C2H6O + 20 C12H22O11 + 3.8e^-15 NH4",
+                     "Reaction 75: 10 C6H12O6 + 7.9e^-15 H2O -> 8e^-16 C2H6O + 20 C12H22O11 + 3.8e^-15 NH4"]
 
     legend_elements = [Line2D([0], [0], color='w', marker='o', markerfacecolor='w', markersize=10, label=sf) for sf in
                        summenformeln]
@@ -430,7 +456,8 @@ def visualize_standardized_max_biomass(max_biomass_df: pd.DataFrame) -> None:
     barWidth = 0.3
 
     # Use of absolute values for Gibbs Energy:
-    plt.bar(range(len(max_biomass_df)), max_biomass_df['Biomass_per_C'].abs(), color='r', label='Standardized maximum biomass')
+    plt.bar(range(len(max_biomass_df)), max_biomass_df['Biomass_per_C'], color='r',
+            label='Standardized maximum biomass')
 
     # Adding labels for the bars:
     plt.xlabel('Reactions', fontweight='bold')
@@ -438,7 +465,7 @@ def visualize_standardized_max_biomass(max_biomass_df: pd.DataFrame) -> None:
     plt.title('Standardized maximum biomass values for the catabolic reactions of the E. coli core model')
     plt.xticks(range(len(max_biomass_df)), range(len(max_biomass_df)))
 
-    plt.legend(handles=legend_elements, loc="upper right")
+    plt.legend(handles=legend_elements, loc="lower left")
 
     # Save diagram:
     print(f"Saving standardized_max_biomass.png")
