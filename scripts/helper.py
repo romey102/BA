@@ -75,10 +75,9 @@ def metabolite_name_lookup():
     }
 
 
-def metabolite_formula_lookup():
-    # TODO check if values are correct!
+def ex_metabolite_formula_lookup():
     return {
-        'EX_ac_e': 'C2H4O2',
+        'EX_ac_e': 'CH3COOH',
         'EX_acald_e': 'C2H4O',
         'EX_akg_e': 'C5H6O5',
         'EX_co2_e': 'CO2',
@@ -94,10 +93,35 @@ def metabolite_formula_lookup():
         'EX_mal__L_e': 'C4H6O5',
         'EX_nh4_e': 'NH4',
         'EX_o2_e': 'O2',
-        'EX_pi_e': 'HPO4',
+        'EX_pi_e': 'PO₄³⁻',
         'EX_pyr_e': 'C3H4O3',
         'EX_succ_e': 'C4H6O4',
         'EX_h_e': 'H+'
+    }
+
+
+def metabolite_formula_lookup():
+    return {
+        'M_ac_e': 'CH3COOH',
+        'M_acald_e': 'C2H4O',
+        'M_akg_e': 'C5H6O5',
+        'M_co2_e': 'CO2',
+        'M_etoh_e': 'C2H6O',
+        'M_for_e': 'CH2O2',
+        'M_fru_e': 'C6H12O6',
+        'M_fum_e': 'C4H4O4',
+        'M_glc__D_e': 'C6H12O6',
+        'M_gln__L_e': 'C5H10N2O3',
+        'M_glu__L_e': 'C5H9NO4',
+        'M_h2o_e': 'H2O',
+        'M_lac__D_e': 'C3H6O3',
+        'M_mal__L_e': 'C4H6O5',
+        'M_nh4_e': 'NH4',
+        'M_o2_e': 'O2',
+        'M_pi_e': 'PO₄³⁻',
+        'M_pyr_e': 'C3H4O3',
+        'M_succ_e': 'C4H6O4',
+        'M_h_e': 'H+'
     }
 
 
@@ -115,3 +139,61 @@ def carbon_count_for_metabolite(name, val):
     carbon_count_lookup = get_carbon_count_lookup()
     multiplier = carbon_count_lookup.get(name, 0)
     return abs(val) * multiplier
+
+
+def create_reaction_equations(df: pd.DataFrame, indices: list):
+    formulas = []
+    lookup = metabolite_formula_lookup()
+    for i in indices:
+        negativeValues = []
+        positiveValues = []
+        for key, value in df.loc[i].items():
+            if key == 'M_h_e':
+                continue
+
+            value = round(value, 1)
+            value = int(value) if value == int(value) else value  # if rounded value is integer then cast to int
+
+            count_str = ''
+            if abs(value) != 1.0:
+                count_str += str(abs(value)) + ' '
+            count_str += lookup[key]
+
+            if value < 0:
+                negativeValues.append(count_str)
+            elif value > 0:
+                positiveValues.append(count_str)
+
+            if key == 'M_succ_e':
+                break  # break after Succinate -> following are calculated rows
+
+        formulas.append('Reaction ' + str(i) + ': ' + ' + '.join(negativeValues) + ' -> ' + ' + '.join(positiveValues))
+    return formulas
+
+
+def create_reaction_equations_atp_biomass(df: pd.DataFrame, df_key: str, indices: list):
+    formulas = []
+    lookup = ex_metabolite_formula_lookup()
+    for i in indices:
+        negativeValues = []
+        positiveValues = []
+        for_dict = df.loc[i, df_key]
+        for key, value in for_dict.items():
+            if key == 'EX_h_e':
+                continue
+
+            value = round(value, 1)
+            value = int(value) if value == int(value) else value  # if rounded value is integer then cast to int
+
+            count_str = ''
+            if abs(value) != 1.0:
+                count_str += str(abs(value)) + ' '
+            count_str += lookup[key]
+
+            if value < 0:
+                negativeValues.append(count_str)
+            elif value > 0:
+                positiveValues.append(count_str)
+
+        formulas.append('Reaction ' + str(i) + ': ' + ' + '.join(negativeValues) + ' -> ' + ' + '.join(positiveValues))
+    return formulas

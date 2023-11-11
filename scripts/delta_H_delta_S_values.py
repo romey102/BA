@@ -1,7 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from scripts.helper import get_carbon_count_lookup
+from scripts.helper import get_carbon_count_lookup, create_reaction_equations
 
 
 def calculate_enthalpy(core_conversions_g_df: pd.DataFrame) -> pd.DataFrame:
@@ -44,6 +44,7 @@ def calculate_enthalpy(core_conversions_g_df: pd.DataFrame) -> pd.DataFrame:
     core_conversions_g_df['Enthalpy'] = delta_H_list
     return core_conversions_g_df
 
+
 def calculate_entropy(enthalpy_df: pd.DataFrame) -> pd.DataFrame:
     delta_H_G = enthalpy_df
     # Loading the combined data:
@@ -70,7 +71,7 @@ def normalize_gibbs_energy_enthalpy_entropy(gibbs_energy_enthalpy_entropy: pd.Da
 
     carbon_count_lookup = get_carbon_count_lookup()
     #  Loading the most recent table:
-    #delta_H_G_and_S_df = pd.read_csv("csvs/gibbs_energy_enthalpy_entropy.csv", header=0)
+    # delta_H_G_and_S_df = pd.read_csv("csvs/gibbs_energy_enthalpy_entropy.csv", header=0)
 
     # Create an empty list to store the calculated totals for each row:
     c_atom_sum_list = []
@@ -95,7 +96,8 @@ def normalize_gibbs_energy_enthalpy_entropy(gibbs_energy_enthalpy_entropy: pd.Da
     gibbs_energy_enthalpy_entropy['c_atom_sum'] = c_atom_sum_list
 
     # Create the new column where the "Gibbs_Energy" values are divided by the c_atom_sum_list values:
-    gibbs_energy_enthalpy_entropy['Gibbs_Energy'] = gibbs_energy_enthalpy_entropy['Gibbs_Energy'] / c_atom_sum_list  # kJ/mol*C
+    gibbs_energy_enthalpy_entropy['Gibbs_Energy'] = gibbs_energy_enthalpy_entropy[
+                                                        'Gibbs_Energy'] / c_atom_sum_list  # kJ/mol*C
     gibbs_energy_enthalpy_entropy['Enthalpy'] = gibbs_energy_enthalpy_entropy['Enthalpy'] / c_atom_sum_list  # kJ/mol*C
     gibbs_energy_enthalpy_entropy['Entropy'] = gibbs_energy_enthalpy_entropy['Entropy'] / c_atom_sum_list  # J/K*C
 
@@ -104,23 +106,22 @@ def normalize_gibbs_energy_enthalpy_entropy(gibbs_energy_enthalpy_entropy: pd.Da
 
 
 def visualize_gibbs_energy(gibbs_energy_enthalpy_entropy_normed: pd.DataFrame) -> None:
-    summenformeln = ["Reaction 0: C6H12O6 + 6 O2 -> 6 CO2 + 6 H2O",
-                     "Reaction 1: C6H12O6 + 4 O2 -> 2 CO2 + 4 CH2O2 +2 H2O",
-                     "Reaction 2: C6H12O6 + 2 O2 -> 2 CH3COOH + 2 CO2 + 2 H2O",
-                     "Reaction 3: 0.3 C6H12O6 + 0.7 O2 -> 0.3 C5H6O5 + 0.3 CO2 + H2O",
-                     "Reaction 4: 0.2 C6H12O6 + 0.2 NH4 + 0.3 O2 -> 0.2 CO2 + 0.2 C5H9NO4 + 0.5 H2O",
-                     "Reaction 5: C6H12O6 + 1.5 O2 -> C5H6O5 + CH2O2 + 2 H2O"]
+    formulas = create_reaction_equations(
+        gibbs_energy_enthalpy_entropy_normed.sort_values('Gibbs_Energy', ascending=True, ignore_index=True),
+        [0, 1, 2, 3, 4, 5])
 
     legend_elements = [Line2D([0], [0], color='w', marker='o', markerfacecolor='w', markersize=10, label=sf) for sf in
-                       summenformeln]
+                       formulas]
 
-    gibbs_energy_enthalpy_entropy_normed = gibbs_energy_enthalpy_entropy_normed.sort_values(by='Gibbs_Energy', ascending=True)
+    gibbs_energy_enthalpy_entropy_normed = gibbs_energy_enthalpy_entropy_normed.sort_values(by='Gibbs_Energy',
+                                                                                            ascending=True)
 
     plt.figure(figsize=(14, 7))
     barWidth = 0.3
 
     # Use of absolute values for Gibbs Energy:
-    plt.bar(range(len(gibbs_energy_enthalpy_entropy_normed)), gibbs_energy_enthalpy_entropy_normed['Gibbs_Energy'].abs(), color='r', label='Gibbs Energy')
+    plt.bar(range(len(gibbs_energy_enthalpy_entropy_normed)),
+            gibbs_energy_enthalpy_entropy_normed['Gibbs_Energy'].abs(), color='r', label='Gibbs Energy')
 
     # Adding labels for the bars:
     plt.xlabel('Reactions', fontweight='bold')
@@ -137,17 +138,15 @@ def visualize_gibbs_energy(gibbs_energy_enthalpy_entropy_normed: pd.DataFrame) -
 
 
 def visualize_entropy(gibbs_energy_enthalpy_entropy_normed: pd.DataFrame) -> None:
-    summenformeln = ["Reaction 0: C6H12O6 + 6 O2 -> 6 CO2 + 6 H2O",
-                     "Reaction 1: C6H12O6 + 4 O2 -> 2 CO2 + 4 CH2O2 +2 H2O",
-                     "Reaction 2: C6H12O6 + 2 O2 -> 2 CH3COOH + 2 CO2 + 2 H2O",
-                     "Reaction 3: 0.3 C6H12O6 + 0.7 O2 -> 0.3 C5H6O5 + 0.3 CO2 + H2O",
-                     "Reaction 4: 0.2 C6H12O6 + 0.2 NH4 + 0.3 O2 -> 0.2 CO2 + 0.2 C5H9NO4 + 0.5 H2O",
-                     "Reaction 5: C6H12O6 + 1.5 O2 -> C5H6O5 + CH2O2 + 2 H2O"]
+    formulas = create_reaction_equations(
+        gibbs_energy_enthalpy_entropy_normed.sort_values('Gibbs_Energy', ascending=True, ignore_index=True),
+        [0, 1, 2, 3, 4, 5])
 
     legend_elements = [Line2D([0], [0], color='w', marker='o', markerfacecolor='w', markersize=10, label=sf) for sf in
-                       summenformeln]
+                       formulas]
 
-    gibbs_energy_enthalpy_entropy_normed = gibbs_energy_enthalpy_entropy_normed.sort_values(by='Gibbs_Energy', ascending=True)
+    gibbs_energy_enthalpy_entropy_normed = gibbs_energy_enthalpy_entropy_normed.sort_values(by='Gibbs_Energy',
+                                                                                            ascending=True)
 
     # Create a color list based on the values of Entropy:
     colors = ['r' if value < 0 else 'g' for value in gibbs_energy_enthalpy_entropy_normed['Entropy']]
@@ -156,7 +155,8 @@ def visualize_entropy(gibbs_energy_enthalpy_entropy_normed: pd.DataFrame) -> Non
     barWidth = 0.3
 
     # Using the color list when drawing the bars:
-    plt.bar(range(len(gibbs_energy_enthalpy_entropy_normed)), gibbs_energy_enthalpy_entropy_normed['Entropy'], color=colors, label='Entropy')
+    plt.bar(range(len(gibbs_energy_enthalpy_entropy_normed)), gibbs_energy_enthalpy_entropy_normed['Entropy'],
+            color=colors, label='Entropy')
 
     # Adding labels for the bars:
     plt.xlabel('Reactions', fontweight='bold')
@@ -173,23 +173,22 @@ def visualize_entropy(gibbs_energy_enthalpy_entropy_normed: pd.DataFrame) -> Non
 
 
 def visualize_enthalpy(gibbs_energy_enthalpy_entropy_normed: pd.DataFrame) -> None:
-    summenformeln = ["Reaction 0: C6H12O6 + 6 O2 -> 6 CO2 + 6 H2O",
-                     "Reaction 1: C6H12O6 + 4 O2 -> 2 CO2 + 4 CH2O2 +2 H2O",
-                     "Reaction 2: C6H12O6 + 2 O2 -> 2 CH3COOH + 2 CO2 + 2 H2O",
-                     "Reaction 3: 0.3 C6H12O6 + 0.7 O2 -> 0.3 C5H6O5 + 0.3 CO2 + H2O",
-                     "Reaction 4: 0.2 C6H12O6 + 0.2 NH4 + 0.3 O2 -> 0.2 CO2 + 0.2 C5H9NO4 + 0.5 H2O",
-                     "Reaction 5: C6H12O6 + 1.5 O2 -> C5H6O5 + CH2O2 + 2 H2O"]
+    formulas = create_reaction_equations(
+        gibbs_energy_enthalpy_entropy_normed.sort_values('Gibbs_Energy', ascending=True, ignore_index=True),
+        [0, 1, 2, 3, 4, 5])
 
     legend_elements = [Line2D([0], [0], color='w', marker='o', markerfacecolor='w', markersize=10, label=sf) for sf in
-                       summenformeln]
+                       formulas]
 
-    gibbs_energy_enthalpy_entropy_normed = gibbs_energy_enthalpy_entropy_normed.sort_values(by='Gibbs_Energy', ascending=True)
+    gibbs_energy_enthalpy_entropy_normed = gibbs_energy_enthalpy_entropy_normed.sort_values(by='Gibbs_Energy',
+                                                                                            ascending=True)
 
     plt.figure(figsize=(14, 7))
     barWidth = 0.3
 
     # Use of absolute values for Enthalpy:
-    plt.bar(range(len(gibbs_energy_enthalpy_entropy_normed)), gibbs_energy_enthalpy_entropy_normed['Enthalpy'].abs(), color='r', label='Enthalpy')
+    plt.bar(range(len(gibbs_energy_enthalpy_entropy_normed)), gibbs_energy_enthalpy_entropy_normed['Enthalpy'].abs(),
+            color='r', label='Enthalpy')
 
     # Adding labels for the bars:
     plt.xlabel('Reactions', fontweight='bold')

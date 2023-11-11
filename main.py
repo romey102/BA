@@ -81,11 +81,11 @@ max_biomass_for_every_reaction_df.to_csv("csvs/max_biomass_for_every_reaction.cs
 # visualizing
 print('visualizing...')
 
-# visualize_gibbs_energy(gibbs_energy_enthalpy_entropy_normed_df.copy())
-#
-# visualize_entropy(gibbs_energy_enthalpy_entropy_normed_df.copy())
-#
-# visualize_enthalpy(gibbs_energy_enthalpy_entropy_normed_df.copy())
+visualize_gibbs_energy(gibbs_energy_enthalpy_entropy_normed_df.copy())
+
+visualize_entropy(gibbs_energy_enthalpy_entropy_normed_df.copy())
+
+visualize_enthalpy(gibbs_energy_enthalpy_entropy_normed_df.copy())
 #
 # visualize_flux_network_reactions(core_conversions_df.copy())
 #

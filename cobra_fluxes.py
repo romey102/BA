@@ -5,7 +5,7 @@ import pandas as pd
 from cobra import Reaction, Model
 from matplotlib.lines import Line2D
 from scripts.helper import get_carbon_count_lookup, carbon_count_for_metabolite, metabolite_to_reaction_name, \
-    metabolite_formula_lookup
+    ex_metabolite_formula_lookup, create_reaction_equations_atp_biomass
 
 
 def get_original_bounds(model):
@@ -350,14 +350,14 @@ def calculate_max_and_max_standardized_biomass_for_every_reaction(model: Model,
             reaction_obj = getattr(model.reactions, reaction_name)
 
             # todo: bounds anpassen wie bei atp
-            if value == 0:
-                # print(f"Value = 0 | Set bounds for {reaction_name}: to 0|0")
+            if abs(value) < 1e-10:
+                # print(f"Value = 0 or very small | Set bounds for {reaction_name}: to 0|0")
                 reaction_obj.lower_bound = 0
                 reaction_obj.upper_bound = 0
             elif value > 0:
-                # print(f"Value > 0 | Set bounds for {reaction_name}: to 0|1000")
+                # print(f"Value > 0 | Set bounds for {reaction_name}: to 0|{value}")
                 reaction_obj.lower_bound = 0
-                reaction_obj.upper_bound = 1000
+                reaction_obj.upper_bound = value
             else:
                 # print(f"Value < 0 | Set bounds for {reaction_name}: to {value}|0")
                 reaction_obj.lower_bound = value
@@ -385,36 +385,11 @@ def calculate_max_and_max_standardized_biomass_for_every_reaction(model: Model,
 
 
 def visualize_standardized_max_ATP(max_ATP_df: pd.DataFrame) -> None:
-    df = max_ATP_df
-    df_key = 'Fluxes'
-
-    formulas = []
-    lookup = metabolite_formula_lookup()
-    for i in range(0, 5):
-        negativeValues = []
-        positiveValues = []
-        for_dict = df.loc[i, df_key]
-        for key, value in for_dict.items():
-            if key == 'EX_h_e':
-                continue
-
-            value = round(value, 3)
-            value = int(value) if value == int(value) else value  # if rounded value is integer then cast to int
-
-            count_str = ''
-            if abs(value) != 1.0:
-                count_str += str(abs(value)) + ' '
-            count_str += lookup[key]
-
-            if value < 0:
-                negativeValues.append(count_str)
-            elif value > 0:
-                positiveValues.append(count_str)
-
-        formulas.append(' + '.join(negativeValues) + ' -> ' + ' + '.join(positiveValues))
+    equations = create_reaction_equations_atp_biomass(max_ATP_df.sort_values('ATP_per_C', ascending=False, ignore_index=True),
+                                          'Fluxes', [0, 1, 2, 3, 4, 5])
 
     legend_elements = [Line2D([0], [0], color='w', marker='o', markerfacecolor='w', markersize=10, label=sf) for sf in
-                       formulas]
+                       equations]
 
     max_ATP_df = max_ATP_df.sort_values(by='ATP_per_C', ascending=False)
 
@@ -439,16 +414,13 @@ def visualize_standardized_max_ATP(max_ATP_df: pd.DataFrame) -> None:
 
 
 def visualize_standardized_max_biomass(max_biomass_df: pd.DataFrame) -> None:
-    # TODO: update reaction names nimmt der hier alle Werte als absolute Zahlen?
-    summenformeln = ["Reaction 0: 10 C6H12O6 + 4.55e^-15 NH4 -> 6.5e^-16 CO2 + 7.8e^-15 H2O + 20 C12H22O11",
-                     "Reaction 1: 10 C6H12O6 + 1.5 O2 + 6.4e^-17 PO₄³⁻ -> CO2 + C2H6O + 3 CH2O2 + 18 C12H22O11",
-                     "Reaction 2: 1.4e^-15 CH2O2 + 10 C6H12O6 -> 20 C3H6O3",
-                     "Reaction 73: 10 C6H12O6 + 7.9e^-15 H2O -> 8e^-16 C2H6O + 20 C12H22O11 + 3.8e^-15 NH4",
-                     "Reaction 74: 10 C6H12O6 + 7.9e^-15 H2O -> 8e^-16 C2H6O + 20 C12H22O11 + 3.8e^-15 NH4",
-                     "Reaction 75: 10 C6H12O6 + 7.9e^-15 H2O -> 8e^-16 C2H6O + 20 C12H22O11 + 3.8e^-15 NH4"]
+
+    equations = create_reaction_equations_atp_biomass(
+        max_biomass_df.sort_values('Biomass_per_C', ascending=False, ignore_index=True),
+        'Fluxes', [0, 1, 2, 73, 74, 75])
 
     legend_elements = [Line2D([0], [0], color='w', marker='o', markerfacecolor='w', markersize=10, label=sf) for sf in
-                       summenformeln]
+                       equations]
 
     max_biomass_df = max_biomass_df.sort_values(by='Biomass_per_C', ascending=False)
 
