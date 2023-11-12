@@ -197,6 +197,25 @@ def visualize_biomass_vs_oxygen(fba_different_oxygen_values_df) -> None:
 
 
 def add_ATP_hydrolysis_reaction(model: Model) -> Model:
+
+    # TODO
+
+    unwanted_reactions = ['ATPM', 'ATPS4r']
+
+    # OPTION 1
+
+    # for reaction_id in unwanted_reactions:
+    #     if reaction_id in model.reactions:
+    #         model.remove_reactions([model.reactions.get_by_id(reaction_id)])
+
+    # OPTION 2
+
+    # for reaction_id in unwanted_reactions:
+    #     if reaction_id in model.reactions:
+    #         reaction = model.reactions.get_by_id(reaction_id)
+    #         reaction.lower_bound = 0
+    #         reaction.upper_bound = 0
+
     # Create a new reaction:
     new_reaction = Reaction('ATP_hydrolysis')
     new_reaction.name = 'ATP Hydrolysis'
