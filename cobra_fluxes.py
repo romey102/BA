@@ -196,41 +196,23 @@ def visualize_biomass_vs_oxygen(fba_different_oxygen_values_df) -> None:
     # ------
 
 
-def add_ATP_hydrolysis_reaction(model: Model) -> Model:
-
-    # TODO
-
-    unwanted_reactions = ['ATPM', 'ATPS4r']
-
-    # OPTION 1
-
-    # for reaction_id in unwanted_reactions:
-    #     if reaction_id in model.reactions:
-    #         model.remove_reactions([model.reactions.get_by_id(reaction_id)])
-
-    # OPTION 2
-
-    # for reaction_id in unwanted_reactions:
-    #     if reaction_id in model.reactions:
-    #         reaction = model.reactions.get_by_id(reaction_id)
-    #         reaction.lower_bound = 0
-    #         reaction.upper_bound = 0
+#def add_ATP_hydrolysis_reaction(model: Model) -> Model:
 
     # Create a new reaction:
-    new_reaction = Reaction('ATP_hydrolysis')
-    new_reaction.name = 'ATP Hydrolysis'
+#    new_reaction = Reaction('ATP_hydrolysis')
+#    new_reaction.name = 'ATP Hydrolysis'
 
     # Defining the reaction:
-    new_reaction.add_metabolites({
-        model.metabolites.atp_c: -1,
-        model.metabolites.h2o_c: -1,
-        model.metabolites.adp_c: 1,
-        model.metabolites.pi_c: 1  # or model.metabolites.pi_e, if the reaction takes place in the extracellular space
-    })
+#    new_reaction.add_metabolites({
+#        model.metabolites.atp_c: -1,
+#        model.metabolites.h2o_c: -1,
+#        model.metabolites.adp_c: 1,
+#        model.metabolites.pi_c: 1  # or model.metabolites.pi_e, if the reaction takes place in the extracellular space
+#    })
 
     # Adding the reaction to the model:
-    model.add_reactions([new_reaction])
-    return model
+#    model.add_reactions([new_reaction])
+#    return model
     # ----
 
 
@@ -272,13 +254,13 @@ def restrict_glucose_flow(model: Model) -> pd.DataFrame:
             reaction.lower_bound = -1000
             reaction.upper_bound = 1000
 
-    model.objective = 'ATP_hydrolysis'
+    model.objective = 'ATPM'
     solution = model.optimize()
     print(f"Optimal flow through the ATP-consuming reaction: {solution.objective_value}")
 
     # Save result in DataFrame:
     atp_results_df = pd.DataFrame({
-        'Reaction': ['ATP_hydrolysis'],
+        'Reaction': ['ATPM'],
         'Optimal_Flow': [solution.objective_value]
     })
     return atp_results_df
@@ -330,7 +312,7 @@ def calculate_max_and_max_standardized_ATP_for_every_reaction(model: Model,
         carbon_count = carbon_count / 2
 
         # Calculate maximum ATP:
-        model.objective = 'ATP_hydrolysis'
+        model.objective = 'ATPM'
         solution = model.optimize()
         atp_per_c = solution.objective_value / carbon_count
 
@@ -368,7 +350,6 @@ def calculate_max_and_max_standardized_biomass_for_every_reaction(model: Model,
                 continue
             reaction_obj = getattr(model.reactions, reaction_name)
 
-            # todo: bounds anpassen wie bei atp
             if abs(value) < 1e-10:
                 # print(f"Value = 0 or very small | Set bounds for {reaction_name}: to 0|0")
                 reaction_obj.lower_bound = 0

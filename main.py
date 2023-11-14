@@ -8,7 +8,7 @@ from scripts.delta_H_delta_S_values import calculate_enthalpy, normalize_gibbs_e
     visualize_enthalpy, visualize_entropy, visualize_gibbs_energy, calculate_entropy
 from scripts.flux_network_reactions import visualize_flux_network_reactions
 from cobra_fluxes import get_original_bounds, fba_different_glucose_values, visualize_biomass_vs_glucose, \
-    fba_different_oxygen_values, visualize_biomass_vs_oxygen, add_ATP_hydrolysis_reaction, update_exchange_fluxes, \
+    fba_different_oxygen_values, visualize_biomass_vs_oxygen, update_exchange_fluxes, \
     restrict_glucose_flow, reset_bounds, calculate_max_and_max_standardized_ATP_for_every_reaction, \
     visualize_standardized_max_ATP, calculate_max_and_max_standardized_biomass_for_every_reaction, \
     visualize_standardized_max_biomass
@@ -58,11 +58,11 @@ print('Calculate FBA for various oxygen values...')
 fba_different_oxygen_values_df = fba_different_oxygen_values(model, original_bounds)
 fba_different_oxygen_values_df.to_csv("csvs/fba_results_for_various_oxygen_values.csv", index=False)
 
-print('Add ATP hydrolysis as a reaction to the model...')
-model_with_reaction = add_ATP_hydrolysis_reaction(model)
+#print('Add ATP hydrolysis as a reaction to the model...')
+#model_with_reaction = add_ATP_hydrolysis_reaction(model)
 
 print('Set all exchange fluxes to 0 where the metabolite in the ecm tool is 0...')
-model_with_reaction_zeroed = update_exchange_fluxes(model_with_reaction)
+model_with_reaction_zeroed = update_exchange_fluxes(model)
 
 print('Calculate the optimal ATP flow for glucose...')
 atp_results_df = restrict_glucose_flow(model_with_reaction_zeroed)
@@ -86,12 +86,12 @@ visualize_gibbs_energy(gibbs_energy_enthalpy_entropy_normed_df.copy())
 visualize_entropy(gibbs_energy_enthalpy_entropy_normed_df.copy())
 
 visualize_enthalpy(gibbs_energy_enthalpy_entropy_normed_df.copy())
-#
-# visualize_flux_network_reactions(core_conversions_df.copy())
-#
-# visualize_biomass_vs_glucose(fba_different_glucose_values_df.copy())
-#
-# visualize_biomass_vs_oxygen(fba_different_oxygen_values_df.copy())
+
+visualize_flux_network_reactions(core_conversions_df.copy())
+
+visualize_biomass_vs_glucose(fba_different_glucose_values_df.copy())
+
+visualize_biomass_vs_oxygen(fba_different_oxygen_values_df.copy())
 
 visualize_standardized_max_ATP(max_ATP_for_every_reaction_df.copy())
 
