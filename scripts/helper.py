@@ -151,17 +151,15 @@ def create_reaction_equations(df: pd.DataFrame, indices: list):
             if key == 'M_h_e':
                 continue
 
-            value = round(value, 1)
-            value = int(value) if value == int(value) else value  # if rounded value is integer then cast to int
-
             count_str = ''
-            if abs(value) != 1.0:
-                count_str += str(abs(value)) + ' '
-            count_str += lookup[key]
 
             if value < 0:
+                value = round(value, 1)
+                count_str += str(abs(value)) + ' ' + lookup[key]
                 negativeValues.append(count_str)
             elif value > 0:
+                value = round(value, 1)
+                count_str += str(abs(value)) + ' ' + lookup[key]
                 positiveValues.append(count_str)
 
             if key == 'M_succ_e':
@@ -182,17 +180,15 @@ def create_reaction_equations_atp_biomass(df: pd.DataFrame, df_key: str, indices
             if key == 'EX_h_e':
                 continue
 
-            value = round(value, 1)
-            value = int(value) if value == int(value) else value  # if rounded value is integer then cast to int
-
             count_str = ''
-            if abs(value) != 1.0:
-                count_str += str(abs(value)) + ' '
-            count_str += lookup[key]
 
             if value < 0:
+                value = round(value, 1)
+                count_str += str(abs(value)) + ' ' + lookup[key]
                 negativeValues.append(count_str)
             elif value > 0:
+                value = round(value, 1)
+                count_str += str(abs(value)) + ' ' + lookup[key]
                 positiveValues.append(count_str)
 
         formulas.append('Reaction ' + str(i) + ': ' + ' + '.join(negativeValues) + ' -> ' + ' + '.join(positiveValues))
