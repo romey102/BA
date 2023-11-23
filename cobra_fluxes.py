@@ -62,7 +62,7 @@ def fba_different_glucose_values(model: Model, original_bounds: dict):
     results_df = pd.DataFrame(columns=['Glucose_Lower_Bound', 'Objective_Value', 'Status'])
 
     # List of glucose values:
-    glucose_values = [-10, -8, -6, -5, -4, -2, -1, 0]
+    glucose_values = [-15, -14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0]
 
     # Initialize the list of DataFrames to be merged:
     df_list = []
@@ -131,7 +131,7 @@ def fba_different_oxygen_values(model: Model, original_bounds: dict):
     results_df = pd.DataFrame(columns=['EX_o2_e_Lower_Bound', 'Objective_Value', 'Status'])
 
     # List of oxygen values:
-    oxygen_values = [-30, -25, -20, -15, -10, -5, 0]
+    oxygen_values = [-100, -95, -90, -85, -80, -75, -70, -65, -60, -55, -50, -45, -40, -35, -30, -25, -20, -15, -10, -5, 0]
 
     # Initialize the list of DataFrames to be merged:
     df_list = []
