@@ -113,7 +113,7 @@ def visualize_biomass_vs_glucose(fba_different_glucose_values_df) -> None:
     # Adding axis titles and a diagram title:
     plt.xlabel('Glucose Lower Bound')
     plt.ylabel('Biomass production')
-    plt.title('Biomass production as a function of glucose concentration')
+    plt.title('Biomass production as a function of the glucose concentration')
 
     # Adding a legend:
     plt.legend()
@@ -184,7 +184,7 @@ def visualize_biomass_vs_oxygen(fba_different_oxygen_values_df) -> None:
     # Adding axis titles and a diagram title:
     plt.xlabel('Oxygen Lower Bound')
     plt.ylabel('Biomass production')
-    plt.title('Biomass production as a function of oxygen concentration')
+    plt.title('Biomass production as a function of the oxygen concentration')
 
     # Adding a legend:
     plt.legend()

@@ -125,8 +125,8 @@ def visualize_gibbs_energy(gibbs_energy_enthalpy_entropy_normed: pd.DataFrame) -
 
     # Adding labels for the bars:
     plt.xlabel('Reactions', fontweight='bold')
-    plt.ylabel('- kJ/C-mol')
-    plt.title('Standardized Gibbs Energies for the reactions of the E. coli core model')
+    plt.ylabel('ΔG [- kJ/C-mol]')
+    plt.title('Standardized Gibbs energy changes for the catabolic reactions of the E. coli core model')
     plt.xticks(range(len(gibbs_energy_enthalpy_entropy_normed)), range(len(gibbs_energy_enthalpy_entropy_normed)))
 
     plt.legend(handles=legend_elements, loc="upper right")
@@ -148,6 +148,7 @@ def visualize_entropy(gibbs_energy_enthalpy_entropy_normed: pd.DataFrame) -> Non
     gibbs_energy_enthalpy_entropy_normed = gibbs_energy_enthalpy_entropy_normed.sort_values(by='Gibbs_Energy',
                                                                                             ascending=True)
 
+    average_of_entropy = gibbs_energy_enthalpy_entropy_normed['Entropy'].mean()
     # Create a color list based on the values of Entropy:
     colors = ['r' if value < 0 else 'g' for value in gibbs_energy_enthalpy_entropy_normed['Entropy']]
 
@@ -158,11 +159,16 @@ def visualize_entropy(gibbs_energy_enthalpy_entropy_normed: pd.DataFrame) -> Non
     plt.bar(range(len(gibbs_energy_enthalpy_entropy_normed)), gibbs_energy_enthalpy_entropy_normed['Entropy'],
             color=colors, label='Entropy')
 
+    plt.axhline(y=average_of_entropy, color='b', linestyle='-', label=f'Sum of Entropy: {average_of_entropy}')
+
     # Adding labels for the bars:
     plt.xlabel('Reactions', fontweight='bold')
-    plt.ylabel('J/T*C')
-    plt.title('Standardized Entropies for the reactions of the E. coli core model')
+    plt.ylabel('ΔS [J/T*C]')
+    plt.title('Standardized entropy changes for the catabolic reactions of the E. coli core model')
     plt.xticks(range(len(gibbs_energy_enthalpy_entropy_normed)), range(len(gibbs_energy_enthalpy_entropy_normed)))
+
+    plt.legend(handles=legend_elements + [
+        Line2D([0], [0], color='b', linestyle='-', label=f'Sum of Entropy: {average_of_entropy}')], loc="upper right")
 
     plt.legend(handles=legend_elements, loc="upper right")
 
@@ -192,8 +198,8 @@ def visualize_enthalpy(gibbs_energy_enthalpy_entropy_normed: pd.DataFrame) -> No
 
     # Adding labels for the bars:
     plt.xlabel('Reactions', fontweight='bold')
-    plt.ylabel('- kJ/C-mol')
-    plt.title('Standardized Enthalpies for the reactions of the E. coli core model')
+    plt.ylabel('ΔH [- kJ/C-mol]')
+    plt.title('Standardized enthalpy changes for the catabolic reactions of the E. coli core model')
     plt.xticks(range(len(gibbs_energy_enthalpy_entropy_normed)), range(len(gibbs_energy_enthalpy_entropy_normed)))
 
     plt.legend(handles=legend_elements, loc="upper right")
