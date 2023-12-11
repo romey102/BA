@@ -125,7 +125,7 @@ def visualize_gibbs_energy(gibbs_energy_enthalpy_entropy_normed: pd.DataFrame) -
 
     # Adding labels for the bars:
     plt.xlabel('Reactions', fontweight='bold')
-    plt.ylabel('ΔG [- kJ/C-mol]')
+    plt.ylabel('-ΔG [kJ/C-mol]')
     plt.title('Standardized Gibbs energy changes for the catabolic reactions of the E. coli core model')
     plt.xticks(range(len(gibbs_energy_enthalpy_entropy_normed)), range(len(gibbs_energy_enthalpy_entropy_normed)))
 
@@ -198,7 +198,7 @@ def visualize_enthalpy(gibbs_energy_enthalpy_entropy_normed: pd.DataFrame) -> No
 
     # Adding labels for the bars:
     plt.xlabel('Reactions', fontweight='bold')
-    plt.ylabel('ΔH [- kJ/C-mol]')
+    plt.ylabel('-ΔH [kJ/C-mol]')
     plt.title('Standardized enthalpy changes for the catabolic reactions of the E. coli core model')
     plt.xticks(range(len(gibbs_energy_enthalpy_entropy_normed)), range(len(gibbs_energy_enthalpy_entropy_normed)))
 
