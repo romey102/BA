@@ -50,6 +50,34 @@ def get_carbon_count_lookup():
     }
 
 
+def get_carbon_count_lookup_biomass():
+    return {
+        '3pg_c': 3,  # 3-Phospho-D-glycerate
+        'accoa_c': 23,  # Acetyl-CoA
+        'atp_c': 10,  # Adenosine Triphosphate
+        'e4p_c': 4,  # Erythrose 4-phosphate
+        'f6p_c': 6,  # Fructose 6-phosphate
+        'g3p_c': 3,  # Glyceraldehyde 3-phosphate
+        'g6p_c': 6,  # Glucose 6-phosphate
+        'gln__L_c': 5,  # L-Glutamine
+        'glu__L_c': 5,  # (L-Glutamate
+        'h2o_c': 0,  # Water
+        'nad_c': 21,  # Nicotinamide Adenine Dinucleotide
+        'nadph_c': 21,  # Nicotinamide Adenine Dinucleotide Phosphate
+        'oaa_c': 4,  # Oxaloacetate
+        'pep_c': 3,  # Phosphoenolpyruvate
+        'pyr_c': 3,  # Pyruvate
+        'r5p_c': 5,  # Ribose 5-phosphate
+        'adp_c': 10,  # Adenosine Diphosphate
+        'akg_c': 5,  # Alpha-Ketoglutarate
+        'coa_c': 21,  # Coenzyme A
+        'h_c': 0,  # Proton
+        'nadh_c': 21,  # Nicotinamide Adenine Dinucleotide (Hydrided)
+        'nadp_c': 21,  # Nicotinamide Adenine Dinucleotide Phosphate
+        'pi_c': 0,  # Inorganic Phosphate
+    }
+
+
 def metabolite_name_lookup():
     return {
         'M_ac_e': 'Acetate',
@@ -169,7 +197,7 @@ def create_reaction_equations(df: pd.DataFrame, indices: list):
     return formulas
 
 
-def create_reaction_equations_atp_biomass(df: pd.DataFrame, df_key: str, indices: list):
+def create_reaction_equations_atp_biomass(df: pd.DataFrame, df_key: str, indices: list, ignore_small_values: bool = False):
     formulas = []
     lookup = ex_metabolite_formula_lookup()
     for i in indices:
@@ -181,6 +209,9 @@ def create_reaction_equations_atp_biomass(df: pd.DataFrame, df_key: str, indices
                 continue
 
             count_str = ''
+
+            if ignore_small_values and abs(value) < 1e-2:
+                continue
 
             if value < 0:
                 value = round(value, 1)

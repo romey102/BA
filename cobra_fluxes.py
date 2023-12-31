@@ -1,11 +1,12 @@
 from multiprocessing import freeze_support
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
-from cobra import Reaction, Model
+from cobra import Model
 from matplotlib.lines import Line2D
-from scripts.helper import get_carbon_count_lookup, carbon_count_for_metabolite, metabolite_to_reaction_name, \
-    ex_metabolite_formula_lookup, create_reaction_equations_atp_biomass
+from scripts.helper import carbon_count_for_metabolite, metabolite_to_reaction_name, \
+    create_reaction_equations_atp_biomass, get_carbon_count_lookup_biomass
 
 
 def get_original_bounds(model):
@@ -78,11 +79,6 @@ def fba_different_glucose_values(model: Model, original_bounds: dict):
         # Performing the FBA:
         solution = model.optimize()
 
-        # Verify that the solution is valid:
-        if solution.status == 'infeasible':
-            print(f"Warning: solution is not allowed for glucose value {glucose_value}.")
-            continue
-
         # Create a temporary DataFrame for the current results:
         temp_df = pd.DataFrame({
             'Glucose_Lower_Bound': [glucose_value],
@@ -100,6 +96,42 @@ def fba_different_glucose_values(model: Model, original_bounds: dict):
     model.reactions.EX_glc__D_e.upper_bound = original_bounds['EX_glc__D_e']['upper_bound']
 
     return results_df
+
+
+def standardized_fba_different_glucose_values_df(model: Model) -> pd.DataFrame:
+    biomass_reaction_id = 'BIOMASS_Ecoli_core_w_GAM'
+    glucose_values = -np.arange(15, -1, -1)
+    df_list = []
+
+    for glucose_value in glucose_values:
+        model.reactions.EX_glc__D_e.lower_bound = glucose_value
+        solution = model.optimize()
+        biomass_reaction = model.reactions.get_by_id(biomass_reaction_id)
+        standardized_biomass = standardize_biomass_production(biomass_reaction, solution)
+        print(standardized_biomass)
+        temp_df = pd.DataFrame({
+                'Glucose_Lower_Bound': [glucose_value],
+                'Standardized_Biomass': [standardized_biomass],
+                'Status': [solution.status]
+        })
+        df_list.append(temp_df)
+    results_df = pd.concat(df_list, ignore_index=True)
+    return results_df
+
+
+def standardize_biomass_production(biomass_reaction, solution):
+    total_carbon = calculate_total_carbon_in_biomass(biomass_reaction)
+    standardized_biomass = solution.objective_value / total_carbon if total_carbon != 0 else 0
+    return standardized_biomass
+
+
+def calculate_total_carbon_in_biomass(biomass_reaction):
+    lookup = get_carbon_count_lookup_biomass()
+    total_carbon = 0
+    for metabolite, coeff in biomass_reaction.metabolites.items():
+        carbon_count = lookup.get(metabolite.id, 0)
+        total_carbon += abs(carbon_count * coeff)
+    return total_carbon / 2
 
 
 def visualize_biomass_vs_glucose(fba_different_glucose_values_df) -> None:
@@ -125,13 +157,36 @@ def visualize_biomass_vs_glucose(fba_different_glucose_values_df) -> None:
 
     # FBA for different oxygen values:
 
+def visualize_standardized_fba_different_glucose_values_df(fba_different_glucose_values_df) -> None:
+    # Creating a plot:
+    plt.figure(figsize=(10, 6))
+
+    # Inserting the data into the plot:
+    plt.scatter(fba_different_glucose_values_df['Glucose_Lower_Bound'],
+                fba_different_glucose_values_df['Standardized_Biomass'], label='Biomass production')
+
+    # Adding axis titles and a diagram title:
+    plt.xlabel('Glucose Lower Bound [mmol/gDW/h]')
+    plt.ylabel('Biomass production [Biomass/C]')
+    plt.title('Standardized Biomass production as a function of the glucose concentration')
+
+    # Adding a legend:
+    plt.legend()
+    print(f"Saving standardized_biomass_vs_glucose.png")
+    plt.savefig("depictions/standardized_biomass_vs_glucose.png")
+    plt.show()
+
+    # ------
+
+    # FBA for different oxygen values:
+
 
 def fba_different_oxygen_values(model: Model, original_bounds: dict):
     # DataFrame for storing the results:
     results_df = pd.DataFrame(columns=['EX_o2_e_Lower_Bound', 'Objective_Value', 'Status'])
 
     # List of oxygen values:
-    oxygen_values = [-100, -95, -90, -85, -80, -75, -70, -65, -60, -55, -50, -45, -40, -35, -30, -25, -20, -15, -10, -5, 0]
+    oxygen_values = np.arange(-100, 1, 0.1)
 
     # Initialize the list of DataFrames to be merged:
     df_list = []
@@ -146,11 +201,6 @@ def fba_different_oxygen_values(model: Model, original_bounds: dict):
 
         # Performing the FBA:
         solution = model.optimize()
-
-        # Verify that the solution is valid:
-        if solution.status == 'infeasible':
-            print(f"Warning: Solution is not allowed for oxygen value {oxygen_value}.")
-            continue
 
         # Create a temporary DataFrame for the current results:
         temp_df = pd.DataFrame({
@@ -183,7 +233,7 @@ def visualize_biomass_vs_oxygen(fba_different_oxygen_values_df) -> None:
 
     # Adding axis titles and a diagram title:
     plt.xlabel('Oxygen Lower Bound [mmol/gDW/h]')
-    plt.ylabel('Biomass production')
+    plt.ylabel('Biomass production []')
     plt.title('Biomass production as a function of the oxygen concentration')
 
     # Adding a legend:
@@ -196,13 +246,13 @@ def visualize_biomass_vs_oxygen(fba_different_oxygen_values_df) -> None:
     # ------
 
 
-#def add_ATP_hydrolysis_reaction(model: Model) -> Model:
+# def add_ATP_hydrolysis_reaction(model: Model) -> Model:
 
-    # Create a new reaction:
+# Create a new reaction:
 #    new_reaction = Reaction('ATP_hydrolysis')
 #    new_reaction.name = 'ATP Hydrolysis'
 
-    # Defining the reaction:
+# Defining the reaction:
 #    new_reaction.add_metabolites({
 #        model.metabolites.atp_c: -1,
 #        model.metabolites.h2o_c: -1,
@@ -210,10 +260,10 @@ def visualize_biomass_vs_oxygen(fba_different_oxygen_values_df) -> None:
 #        model.metabolites.pi_c: 1  # or model.metabolites.pi_e, if the reaction takes place in the extracellular space
 #    })
 
-    # Adding the reaction to the model:
+# Adding the reaction to the model:
 #    model.add_reactions([new_reaction])
 #    return model
-    # ----
+# ----
 
 
 def update_exchange_fluxes(model: Model) -> Model:
@@ -250,12 +300,12 @@ def restrict_glucose_flow(model: Model) -> pd.DataFrame:
     for reaction in [model.reactions.EX_o2_e, model.reactions.EX_h2o_e, model.reactions.EX_co2_e,
                      model.reactions.EX_h_e]:
         if reaction.id != "EX_glc__D_e":
-            print(reaction.id)
             reaction.lower_bound = -1000
             reaction.upper_bound = 1000
 
     model.objective = 'ATPM'
     solution = model.optimize()
+
     print(f"Optimal flow through the ATP-consuming reaction: {solution.objective_value}")
 
     # Save result in DataFrame:
@@ -272,8 +322,6 @@ def reset_bounds(model, original_bounds) -> Model:
         model.reactions.get_by_id(reaction_id).lower_bound = bounds['lower_bound']
         model.reactions.get_by_id(reaction_id).upper_bound = bounds['upper_bound']
     return model
-
-    # ------
 
 
 def calculate_max_and_max_standardized_ATP_for_every_reaction(model: Model,
@@ -297,15 +345,15 @@ def calculate_max_and_max_standardized_ATP_for_every_reaction(model: Model,
             reaction_obj = getattr(model.reactions, reaction_name)
 
             if abs(value) < 1e-10:  # oder abs(value) <= 1e-10:
-                # print(f"Value = 0 or very small| Set bounds for {reaction_name}: to 0|0")
+                # print(f"Value = 0 or very small | Value: {value} | Set bounds for {reaction_name}: to 0|0 | Before: Upper: {reaction_obj.upper_bound} Lower bound: {reaction_obj.lower_bound}")
                 reaction_obj.lower_bound = 0
                 reaction_obj.upper_bound = 0
             elif value > 0:
-                # print(f"Value > 0 | Set bounds for {reaction_name}: to 0|{value}")
+                # print(f"Value > 0 | Value: {value} | Set bounds for {reaction_name}: to 0|{value} | Before: Upper: {reaction_obj.upper_bound} Lower bound: {reaction_obj.lower_bound}")
                 reaction_obj.lower_bound = 0
-                reaction_obj.upper_bound = value
+                reaction_obj.upper_bound = 1000  # if we use value here the optimizer marks this as infeasible
             else:
-                # print(f"Value < 0 | Set bounds for {reaction_name}: to {value}|0")
+                # print(f"Value < 0 | Value: {value} | Set bounds for {reaction_name}: to {value}|0 | Before: Upper: {reaction_obj.upper_bound} Lower bound: {reaction_obj.lower_bound}")
                 reaction_obj.lower_bound = value
                 reaction_obj.upper_bound = 0
 
@@ -313,7 +361,12 @@ def calculate_max_and_max_standardized_ATP_for_every_reaction(model: Model,
 
         # Calculate maximum ATP:
         model.objective = 'ATPM'
+
         solution = model.optimize()
+
+        print(index, solution.status)
+        # exit()
+
         atp_per_c = solution.objective_value / carbon_count
 
         # Save results:
@@ -385,8 +438,9 @@ def calculate_max_and_max_standardized_biomass_for_every_reaction(model: Model,
 
 
 def visualize_standardized_max_ATP(max_ATP_df: pd.DataFrame) -> None:
-    equations = create_reaction_equations_atp_biomass(max_ATP_df.sort_values('ATP_per_C', ascending=False, ignore_index=True),
-                                          'Fluxes', [0, 1, 2, 3, 4, 5])
+    equations = create_reaction_equations_atp_biomass(
+        max_ATP_df.sort_values('ATP_per_C', ascending=False, ignore_index=True),
+        'Fluxes', [0, 1, 2, 3, 4, 5],True)
 
     legend_elements = [Line2D([0], [0], color='w', marker='o', markerfacecolor='w', markersize=10, label=sf) for sf in
                        equations]
@@ -414,10 +468,9 @@ def visualize_standardized_max_ATP(max_ATP_df: pd.DataFrame) -> None:
 
 
 def visualize_standardized_max_biomass(max_biomass_df: pd.DataFrame) -> None:
-
     equations = create_reaction_equations_atp_biomass(
         max_biomass_df.sort_values('Biomass_per_C', ascending=False, ignore_index=True),
-        'Fluxes', [0, 1, 2, 73, 74, 75])
+        'Fluxes', [0, 1, 2, 73, 74, 75], True)
 
     legend_elements = [Line2D([0], [0], color='w', marker='o', markerfacecolor='w', markersize=10, label=sf) for sf in
                        equations]

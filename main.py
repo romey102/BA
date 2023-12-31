@@ -11,8 +11,7 @@ from cobra_fluxes import get_original_bounds, fba_different_glucose_values, visu
     fba_different_oxygen_values, visualize_biomass_vs_oxygen, update_exchange_fluxes, \
     restrict_glucose_flow, reset_bounds, calculate_max_and_max_standardized_ATP_for_every_reaction, \
     visualize_standardized_max_ATP, calculate_max_and_max_standardized_biomass_for_every_reaction, \
-    visualize_standardized_max_biomass
-
+    visualize_standardized_max_biomass, standardized_fba_different_glucose_values_df, visualize_standardized_fba_different_glucose_values_df
 
 # Setup:
 os.makedirs('csvs', exist_ok=True)
@@ -49,6 +48,8 @@ gibbs_energy_enthalpy_entropy_normed_df.to_csv("csvs/gibbs_energy_enthalpy_entro
 print('Load model (CobraPy) and set original bounds...')
 model = read_sbml_model("models/e_coli_core.xml")
 original_bounds = get_original_bounds(model)
+
+standardized_fba_different_glucose_values_df = standardized_fba_different_glucose_values_df(model.copy())
 
 print('Calculate FBA for various glucose values...')
 fba_different_glucose_values_df = fba_different_glucose_values(model, original_bounds)
@@ -91,8 +92,11 @@ visualize_flux_network_reactions(core_conversions_df.copy())
 
 visualize_biomass_vs_glucose(fba_different_glucose_values_df.copy())
 
+visualize_standardized_fba_different_glucose_values_df(standardized_fba_different_glucose_values_df.copy())
+
 visualize_biomass_vs_oxygen(fba_different_oxygen_values_df.copy())
 
 visualize_standardized_max_ATP(max_ATP_for_every_reaction_df.copy())
 
 visualize_standardized_max_biomass(max_biomass_for_every_reaction_df.copy())
+
