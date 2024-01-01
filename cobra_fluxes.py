@@ -100,7 +100,7 @@ def fba_different_glucose_values(model: Model, original_bounds: dict):
 
 def standardized_fba_different_glucose_values_df(model: Model) -> pd.DataFrame:
     biomass_reaction_id = 'BIOMASS_Ecoli_core_w_GAM'
-    glucose_values = -np.arange(15, -1, -1)
+    glucose_values = np.arange(-15, 0.1, 0.1)
     df_list = []
 
     for glucose_value in glucose_values:
@@ -110,9 +110,9 @@ def standardized_fba_different_glucose_values_df(model: Model) -> pd.DataFrame:
         standardized_biomass = standardize_biomass_production(biomass_reaction, solution)
         print(standardized_biomass)
         temp_df = pd.DataFrame({
-                'Glucose_Lower_Bound': [glucose_value],
-                'Standardized_Biomass': [standardized_biomass],
-                'Status': [solution.status]
+            'Glucose_Lower_Bound': [glucose_value],
+            'Standardized_Biomass': [standardized_biomass],
+            'Status': [solution.status]
         })
         df_list.append(temp_df)
     results_df = pd.concat(df_list, ignore_index=True)
@@ -156,6 +156,7 @@ def visualize_biomass_vs_glucose(fba_different_glucose_values_df) -> None:
     # ------
 
     # FBA for different oxygen values:
+
 
 def visualize_standardized_fba_different_glucose_values_df(fba_different_glucose_values_df) -> None:
     # Creating a plot:
@@ -223,6 +224,27 @@ def fba_different_oxygen_values(model: Model, original_bounds: dict):
     return results_df
 
 
+def standardized_fba_different_oxygen_values_df(model: Model) -> pd.DataFrame:
+    biomass_reaction_id = 'BIOMASS_Ecoli_core_w_GAM'
+    oxygen_values = np.arange(-100, 1, 0.1)
+    df_list = []
+
+    for oxygen_value in oxygen_values:
+        model.reactions.EX_o2_e.lower_bound = oxygen_value
+        solution = model.optimize()
+        biomass_reaction = model.reactions.get_by_id(biomass_reaction_id)
+        standardized_biomass = standardize_biomass_production(biomass_reaction, solution)
+        print(standardized_biomass)
+        temp_df = pd.DataFrame({
+            'Oxygen_Lower_Bound': [oxygen_value],
+            'Standardized_Biomass': [standardized_biomass],
+            'Status': [solution.status]
+        })
+        df_list.append(temp_df)
+    results_df = pd.concat(df_list, ignore_index=True)
+    return results_df
+
+
 def visualize_biomass_vs_oxygen(fba_different_oxygen_values_df) -> None:
     # Creating a plot:
     plt.figure(figsize=(10, 6))
@@ -243,7 +265,25 @@ def visualize_biomass_vs_oxygen(fba_different_oxygen_values_df) -> None:
     plt.savefig("depictions/biomass_vs_oxygen.png")
     plt.show()
 
-    # ------
+
+def visualize_standardized_fba_different_oxygen_values_df(fba_different_oxygen_values_df) -> None:
+    # Creating a plot:
+    plt.figure(figsize=(10, 6))
+
+    # Inserting the data into the plot:
+    plt.scatter(fba_different_oxygen_values_df['Oxygen_Lower_Bound'],
+                fba_different_oxygen_values_df['Standardized_Biomass'], label='Biomass production')
+
+    # Adding axis titles and a diagram title:
+    plt.xlabel('Oxygen Lower Bound [mmol/gDW/h]')
+    plt.ylabel('Biomass production [Biomass/C]')
+    plt.title('Standardized Biomass production as a function of the oxygen concentration')
+
+    # Adding a legend:
+    plt.legend()
+    print(f"Saving standardized_biomass_vs_oxygen.png")
+    plt.savefig("depictions/standardized_biomass_vs_oxygen.png")
+    plt.show()
 
 
 # def add_ATP_hydrolysis_reaction(model: Model) -> Model:
@@ -440,7 +480,7 @@ def calculate_max_and_max_standardized_biomass_for_every_reaction(model: Model,
 def visualize_standardized_max_ATP(max_ATP_df: pd.DataFrame) -> None:
     equations = create_reaction_equations_atp_biomass(
         max_ATP_df.sort_values('ATP_per_C', ascending=False, ignore_index=True),
-        'Fluxes', [0, 1, 2, 3, 4, 5],True)
+        'Fluxes', [0, 1, 2, 3, 4, 5], True)
 
     legend_elements = [Line2D([0], [0], color='w', marker='o', markerfacecolor='w', markersize=10, label=sf) for sf in
                        equations]
