@@ -6,7 +6,7 @@ import pandas as pd
 from cobra import Model
 from matplotlib.lines import Line2D
 from scripts.helper import carbon_count_for_metabolite, metabolite_to_reaction_name, \
-    create_reaction_equations_atp_biomass, get_carbon_count_lookup_biomass
+    create_reaction_equations_atp_biomass, get_carbon_count_lookup_biomass, get_carbon_count_lookup
 
 
 def get_original_bounds(model):
@@ -58,12 +58,13 @@ def get_original_bounds(model):
     # FBA for different glucose values:
 
 
-def fba_different_glucose_values(model: Model, original_bounds: dict):
+def fba_different_glucose_values(model: Model):
+    model = model.copy()
     # DataFrame for storing the results:
     results_df = pd.DataFrame(columns=['Glucose_Lower_Bound', 'Objective_Value', 'Status'])
 
     # List of glucose values:
-    glucose_values = [-15, -14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0]
+    glucose_values = np.arange(-15, 0.1, 0.1)
 
     # Initialize the list of DataFrames to be merged:
     df_list = []
@@ -91,47 +92,41 @@ def fba_different_glucose_values(model: Model, original_bounds: dict):
     # Merge the DataFrames:
     results_df = pd.concat(df_list, ignore_index=True)
 
-    # Reset the bounds for glucose to the original values:
-    model.reactions.EX_glc__D_e.lower_bound = original_bounds['EX_glc__D_e']['lower_bound']
-    model.reactions.EX_glc__D_e.upper_bound = original_bounds['EX_glc__D_e']['upper_bound']
-
     return results_df
 
 
 def standardized_fba_different_glucose_values_df(model: Model) -> pd.DataFrame:
-    biomass_reaction_id = 'BIOMASS_Ecoli_core_w_GAM'
+    model = model.copy()
+
     glucose_values = np.arange(-15, 0.1, 0.1)
     df_list = []
 
+    model.objective = 'BIOMASS_Ecoli_core_w_GAM'
+    biomass_reaction = model.reactions.get_by_id('BIOMASS_Ecoli_core_w_GAM')
+    total_carbon = abs(calculate_total_carbon_in_biomass(biomass_reaction))
+
     for glucose_value in glucose_values:
-        model.reactions.EX_glc__D_e.lower_bound = glucose_value
+        model.reactions.get_by_id('EX_glc__D_e').lower_bound = glucose_value
         solution = model.optimize()
-        biomass_reaction = model.reactions.get_by_id(biomass_reaction_id)
-        standardized_biomass = standardize_biomass_production(biomass_reaction, solution)
-        print(standardized_biomass)
-        temp_df = pd.DataFrame({
-            'Glucose_Lower_Bound': [glucose_value],
-            'Standardized_Biomass': [standardized_biomass],
-            'Status': [solution.status]
-        })
-        df_list.append(temp_df)
+
+        if solution.status == 'optimal':
+            temp_df = pd.DataFrame({
+                'Glucose_Lower_Bound': [glucose_value*6],
+                'Standardized_Biomass': [solution.objective_value*total_carbon],
+                'Verhältnis': [(solution.objective_value*total_carbon)/abs(glucose_value*6)],
+            })
+            df_list.append(temp_df)
+
     results_df = pd.concat(df_list, ignore_index=True)
     return results_df
-
-
-def standardize_biomass_production(biomass_reaction, solution):
-    total_carbon = calculate_total_carbon_in_biomass(biomass_reaction)
-    standardized_biomass = solution.objective_value / total_carbon if total_carbon != 0 else 0
-    return standardized_biomass
-
 
 def calculate_total_carbon_in_biomass(biomass_reaction):
     lookup = get_carbon_count_lookup_biomass()
     total_carbon = 0
     for metabolite, coeff in biomass_reaction.metabolites.items():
         carbon_count = lookup.get(metabolite.id, 0)
-        total_carbon += abs(carbon_count * coeff)
-    return total_carbon / 2
+        total_carbon += carbon_count * coeff
+    return total_carbon
 
 
 def visualize_biomass_vs_glucose(fba_different_glucose_values_df) -> None:
@@ -143,8 +138,8 @@ def visualize_biomass_vs_glucose(fba_different_glucose_values_df) -> None:
                 fba_different_glucose_values_df['Objective_Value'], label='Biomass production')
 
     # Adding axis titles and a diagram title:
-    plt.xlabel('Glucose Lower Bound [mmol/gDW/h]')
-    plt.ylabel('Biomass production []')
+    plt.xlabel('Glucose Lower Bound')
+    plt.ylabel('Biomass production')
     plt.title('Biomass production as a function of the glucose concentration')
 
     # Adding a legend:
@@ -167,8 +162,8 @@ def visualize_standardized_fba_different_glucose_values_df(fba_different_glucose
                 fba_different_glucose_values_df['Standardized_Biomass'], label='Biomass production')
 
     # Adding axis titles and a diagram title:
-    plt.xlabel('Glucose Lower Bound [mmol/gDW/h]')
-    plt.ylabel('Biomass production [Biomass/C]')
+    plt.xlabel('Glucose Lower Bound [Bound*C]')
+    plt.ylabel('Biomass production [Biomass*C]')
     plt.title('Standardized Biomass production as a function of the glucose concentration')
 
     # Adding a legend:
@@ -183,9 +178,6 @@ def visualize_standardized_fba_different_glucose_values_df(fba_different_glucose
 
 
 def fba_different_oxygen_values(model: Model, original_bounds: dict):
-    # DataFrame for storing the results:
-    results_df = pd.DataFrame(columns=['EX_o2_e_Lower_Bound', 'Objective_Value', 'Status'])
-
     # List of oxygen values:
     oxygen_values = np.arange(-100, 1, 0.1)
 
@@ -225,22 +217,25 @@ def fba_different_oxygen_values(model: Model, original_bounds: dict):
 
 
 def standardized_fba_different_oxygen_values_df(model: Model) -> pd.DataFrame:
-    biomass_reaction_id = 'BIOMASS_Ecoli_core_w_GAM'
     oxygen_values = np.arange(-100, 1, 0.1)
     df_list = []
 
+    biomass_reaction = model.reactions.get_by_id('BIOMASS_Ecoli_core_w_GAM')
+    total_carbon = abs(calculate_total_carbon_in_biomass(biomass_reaction))
+
+    # Loop through the list of oxygen values:
     for oxygen_value in oxygen_values:
-        model.reactions.EX_o2_e.lower_bound = oxygen_value
+        model.reactions.get_by_id('EX_o2_e').lower_bound =oxygen_value
         solution = model.optimize()
-        biomass_reaction = model.reactions.get_by_id(biomass_reaction_id)
-        standardized_biomass = standardize_biomass_production(biomass_reaction, solution)
-        print(standardized_biomass)
-        temp_df = pd.DataFrame({
-            'Oxygen_Lower_Bound': [oxygen_value],
-            'Standardized_Biomass': [standardized_biomass],
-            'Status': [solution.status]
-        })
-        df_list.append(temp_df)
+
+        if solution.status == 'optimal':
+            temp_df = pd.DataFrame({
+                'Oxygen_Lower_Bound': [oxygen_value],
+                'Standardized_Biomass': [solution.objective_value*total_carbon],
+                'Ratio': [(solution.objective_value * total_carbon) / abs(oxygen_value * 6)],
+            })
+            df_list.append(temp_df)
+
     results_df = pd.concat(df_list, ignore_index=True)
     return results_df
 
@@ -254,8 +249,8 @@ def visualize_biomass_vs_oxygen(fba_different_oxygen_values_df) -> None:
                 label='Biomass production')
 
     # Adding axis titles and a diagram title:
-    plt.xlabel('Oxygen Lower Bound [mmol/gDW/h]')
-    plt.ylabel('Biomass production []')
+    plt.xlabel('Oxygen Lower Bound')
+    plt.ylabel('Biomass production')
     plt.title('Biomass production as a function of the oxygen concentration')
 
     # Adding a legend:
@@ -275,8 +270,8 @@ def visualize_standardized_fba_different_oxygen_values_df(fba_different_oxygen_v
                 fba_different_oxygen_values_df['Standardized_Biomass'], label='Biomass production')
 
     # Adding axis titles and a diagram title:
-    plt.xlabel('Oxygen Lower Bound [mmol/gDW/h]')
-    plt.ylabel('Biomass production [Biomass/C]')
+    plt.xlabel('Oxygen Lower Bound')
+    plt.ylabel('Biomass production [Biomass*C]')
     plt.title('Standardized Biomass production as a function of the oxygen concentration')
 
     # Adding a legend:
@@ -284,26 +279,6 @@ def visualize_standardized_fba_different_oxygen_values_df(fba_different_oxygen_v
     print(f"Saving standardized_biomass_vs_oxygen.png")
     plt.savefig("depictions/standardized_biomass_vs_oxygen.png")
     plt.show()
-
-
-# def add_ATP_hydrolysis_reaction(model: Model) -> Model:
-
-# Create a new reaction:
-#    new_reaction = Reaction('ATP_hydrolysis')
-#    new_reaction.name = 'ATP Hydrolysis'
-
-# Defining the reaction:
-#    new_reaction.add_metabolites({
-#        model.metabolites.atp_c: -1,
-#        model.metabolites.h2o_c: -1,
-#        model.metabolites.adp_c: 1,
-#        model.metabolites.pi_c: 1  # or model.metabolites.pi_e, if the reaction takes place in the extracellular space
-#    })
-
-# Adding the reaction to the model:
-#    model.add_reactions([new_reaction])
-#    return model
-# ----
 
 
 def update_exchange_fluxes(model: Model) -> Model:
@@ -332,6 +307,9 @@ def update_exchange_fluxes(model: Model) -> Model:
 
 
 def restrict_glucose_flow(model: Model) -> pd.DataFrame:
+    print('Set all exchange fluxes to 0 where the metabolite in the ecm tool is 0...')
+    model = update_exchange_fluxes(model.copy())
+
     # Restrict the flow for the C source (glucose):
     model.reactions.EX_glc__D_e.lower_bound = -1
     model.reactions.EX_glc__D_e.upper_bound = 0
@@ -344,6 +322,8 @@ def restrict_glucose_flow(model: Model) -> pd.DataFrame:
             reaction.upper_bound = 1000
 
     model.objective = 'ATPM'
+    model.reactions.ATPM.lower_bound = 0
+    model.reactions.ATPM.upper_bound = 1000
     solution = model.optimize()
 
     print(f"Optimal flow through the ATP-consuming reaction: {solution.objective_value}")
@@ -356,16 +336,10 @@ def restrict_glucose_flow(model: Model) -> pd.DataFrame:
     return atp_results_df
 
 
-def reset_bounds(model, original_bounds) -> Model:
-    # Reset the bounds for the metabolites to the original values: (?)
-    for reaction_id, bounds in original_bounds.items():
-        model.reactions.get_by_id(reaction_id).lower_bound = bounds['lower_bound']
-        model.reactions.get_by_id(reaction_id).upper_bound = bounds['upper_bound']
-    return model
-
-
 def calculate_max_and_max_standardized_ATP_for_every_reaction(model: Model,
                                                               core_conversions_df: pd.DataFrame) -> pd.DataFrame:
+    model = model.copy()
+
     # Remove all elements where objective !== 0
     core_conversions_df = core_conversions_df[core_conversions_df["objective"] == 0]
 
@@ -391,7 +365,7 @@ def calculate_max_and_max_standardized_ATP_for_every_reaction(model: Model,
             elif value > 0:
                 # print(f"Value > 0 | Value: {value} | Set bounds for {reaction_name}: to 0|{value} | Before: Upper: {reaction_obj.upper_bound} Lower bound: {reaction_obj.lower_bound}")
                 reaction_obj.lower_bound = 0
-                reaction_obj.upper_bound = 1000  # if we use value here the optimizer marks this as infeasible
+                reaction_obj.upper_bound = value  # if we use value here the optimizer marks this as infeasible
             else:
                 # print(f"Value < 0 | Value: {value} | Set bounds for {reaction_name}: to {value}|0 | Before: Upper: {reaction_obj.upper_bound} Lower bound: {reaction_obj.lower_bound}")
                 reaction_obj.lower_bound = value
@@ -401,11 +375,9 @@ def calculate_max_and_max_standardized_ATP_for_every_reaction(model: Model,
 
         # Calculate maximum ATP:
         model.objective = 'ATPM'
-
+        model.reactions.ATPM.lower_bound = 0
+        model.reactions.ATPM.upper_bound = 1000
         solution = model.optimize()
-
-        print(index, solution.status)
-        # exit()
 
         atp_per_c = solution.objective_value / carbon_count
 
@@ -417,7 +389,6 @@ def calculate_max_and_max_standardized_ATP_for_every_reaction(model: Model,
             'ATP_per_C': atp_per_c,
             'carbon_count': carbon_count,
         })
-
     # Save results as a CSV file:
     results_df = pd.DataFrame(results)
     return results_df
@@ -425,6 +396,7 @@ def calculate_max_and_max_standardized_ATP_for_every_reaction(model: Model,
 
 def calculate_max_and_max_standardized_biomass_for_every_reaction(model: Model,
                                                                   core_conversions_df: pd.DataFrame) -> pd.DataFrame:
+    model = model.copy()
     # Remove all elements where objective !== 0
     core_conversions_df = core_conversions_df[core_conversions_df["objective"] == 0]
 

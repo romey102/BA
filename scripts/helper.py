@@ -39,6 +39,7 @@ def get_carbon_count_lookup():
         'M_glc__D_e': 6,  # Glucose
         'M_gln__L_e': 5,  # Glutamine
         'M_glu__L_e': 5,  # Glutamate
+        'M_h_e': 0,  # Protons
         'M_h2o_e': 0,  # Water
         'M_lac__D_e': 3,  # Lactate
         'M_mal__L_e': 4,  # Malate

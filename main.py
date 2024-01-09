@@ -9,7 +9,7 @@ from scripts.delta_H_delta_S_values import calculate_enthalpy, normalize_gibbs_e
 from scripts.flux_network_reactions import visualize_flux_network_reactions
 from cobra_fluxes import get_original_bounds, fba_different_glucose_values, visualize_biomass_vs_glucose, \
     fba_different_oxygen_values, visualize_biomass_vs_oxygen, update_exchange_fluxes, \
-    restrict_glucose_flow, reset_bounds, calculate_max_and_max_standardized_ATP_for_every_reaction, \
+    restrict_glucose_flow, calculate_max_and_max_standardized_ATP_for_every_reaction, \
     visualize_standardized_max_ATP, calculate_max_and_max_standardized_biomass_for_every_reaction, \
     visualize_standardized_max_biomass, standardized_fba_different_glucose_values_df, \
     visualize_standardized_fba_different_glucose_values_df, visualize_standardized_fba_different_oxygen_values_df, standardized_fba_different_oxygen_values_df
@@ -19,6 +19,8 @@ os.makedirs('csvs', exist_ok=True)
 os.makedirs('intermediate_results', exist_ok=True)
 os.makedirs('depictions', exist_ok=True)
 core_conversions_df = pd.read_csv('csvs/core_conversions.csv') # This is the result of the ecm tool (needed!)
+
+model = read_sbml_model("models/e_coli_core.xml")
 
 
 # Processing:
@@ -53,7 +55,7 @@ original_bounds = get_original_bounds(model)
 standardized_fba_different_glucose_values_df = standardized_fba_different_glucose_values_df(model.copy())
 
 print('Calculate FBA for various glucose values...')
-fba_different_glucose_values_df = fba_different_glucose_values(model, original_bounds)
+fba_different_glucose_values_df = fba_different_glucose_values(model)
 fba_different_glucose_values_df.to_csv("csvs/fba_results_for_various_glucose_values.csv", index=False)
 
 standardized_fba_different_oxygen_values_df = standardized_fba_different_oxygen_values_df(model.copy())
@@ -62,24 +64,16 @@ print('Calculate FBA for various oxygen values...')
 fba_different_oxygen_values_df = fba_different_oxygen_values(model, original_bounds)
 fba_different_oxygen_values_df.to_csv("csvs/fba_results_for_various_oxygen_values.csv", index=False)
 
-#print('Add ATP hydrolysis as a reaction to the model...')
-#model_with_reaction = add_ATP_hydrolysis_reaction(model)
-
-print('Set all exchange fluxes to 0 where the metabolite in the ecm tool is 0...')
-model_with_reaction_zeroed = update_exchange_fluxes(model)
-
 print('Calculate the optimal ATP flow for glucose...')
-atp_results_df = restrict_glucose_flow(model_with_reaction_zeroed)
+atp_results_df = restrict_glucose_flow(model)
 atp_results_df.to_csv("csvs/atp_optimal_flow_glucose.csv", index=False)
 
-model_reset_bounds = reset_bounds(model_with_reaction_zeroed, original_bounds)
-
 print('Calculate the maximum ATP yield for every reaction, standardize it and show all exchange fluxes...')
-max_ATP_for_every_reaction_df = calculate_max_and_max_standardized_ATP_for_every_reaction(model_reset_bounds, core_conversions_df.copy())
+max_ATP_for_every_reaction_df = calculate_max_and_max_standardized_ATP_for_every_reaction(model, core_conversions_df.copy())
 max_ATP_for_every_reaction_df.to_csv("csvs/max_ATP_for_every_reaction.csv", index=False)
 
 print('Calculate the maximum biomass yield for every reaction, standardize it and show all exchange fluxes...')
-max_biomass_for_every_reaction_df = calculate_max_and_max_standardized_biomass_for_every_reaction(model_reset_bounds, core_conversions_df.copy())
+max_biomass_for_every_reaction_df = calculate_max_and_max_standardized_biomass_for_every_reaction(model, core_conversions_df.copy())
 max_biomass_for_every_reaction_df.to_csv("csvs/max_biomass_for_every_reaction.csv", index=False)
 
 # visualizing
