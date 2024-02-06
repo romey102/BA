@@ -359,15 +359,15 @@ def calculate_max_and_max_standardized_ATP_for_every_reaction(model: Model,
             reaction_obj = getattr(model.reactions, reaction_name)
 
             if abs(value) < 1e-10:  # oder abs(value) <= 1e-10:
-                # print(f"Value = 0 or very small | Value: {value} | Set bounds for {reaction_name}: to 0|0 | Before: Upper: {reaction_obj.upper_bound} Lower bound: {reaction_obj.lower_bound}")
+                # print(f"Value = 0 or very small | Value: {value} | Set bounds for {reaction_name}: to 0|0
                 reaction_obj.lower_bound = 0
                 reaction_obj.upper_bound = 0
             elif value > 0:
-                # print(f"Value > 0 | Value: {value} | Set bounds for {reaction_name}: to 0|{value} | Before: Upper: {reaction_obj.upper_bound} Lower bound: {reaction_obj.lower_bound}")
+                # print(f"Value > 0 | Value: {value} | Set bounds for {reaction_name}: to 0|{value}
                 reaction_obj.lower_bound = 0
-                reaction_obj.upper_bound = value  # if we use value here the optimizer marks this as infeasible
+                reaction_obj.upper_bound = value
             else:
-                # print(f"Value < 0 | Value: {value} | Set bounds for {reaction_name}: to {value}|0 | Before: Upper: {reaction_obj.upper_bound} Lower bound: {reaction_obj.lower_bound}")
+                # print(f"Value < 0 | Value: {value} | Set bounds for {reaction_name}: to {value}|0
                 reaction_obj.lower_bound = value
                 reaction_obj.upper_bound = 0
 
